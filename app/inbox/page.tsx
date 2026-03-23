@@ -1,6 +1,6 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { signIn, signOut, useSession } from "next-auth/react";
 import { useEffect, useMemo, useState } from "react";
 
@@ -11,6 +11,8 @@ type EmailItem = {
   subject: string;
   from: string;
   date: string;
+  bodyText?: string;
+  bodyHtml?: string;
 };
 
 type EmailApiResponse = {
@@ -76,12 +78,36 @@ function extractSenderEmail(from: string): string {
   return "unknown@example.com";
 }
 
+function buildEmailSrcDoc(html: string) {
+  const trimmed = html.trim();
+  const hasHtmlTag = /<html[\s>]/i.test(trimmed);
+
+  if (hasHtmlTag) {
+    return trimmed;
+  }
+
+  return `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root { color-scheme: light; }
+      html, body { margin: 0; padding: 0; }
+      body { font-family: Arial, Helvetica, sans-serif; line-height: 1.45; color: #111827; }
+    </style>
+  </head>
+  <body>${trimmed}</body>
+</html>`;
+}
+
 export default function InboxPage() {
   const { status } = useSession();
   const [emails, setEmails] = useState<EmailItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedSender, setSelectedSender] = useState<string>("");
+  const [selectedEmail, setSelectedEmail] = useState<EmailItem | null>(null);
 
   useEffect(() => {
     async function loadEmails() {
@@ -165,6 +191,10 @@ export default function InboxPage() {
     const group = senderGroups.find((item) => item.sender === selectedSender);
     return group?.emails ?? [];
   }, [selectedSender, senderGroups]);
+
+  useEffect(() => {
+    setSelectedEmail(null);
+  }, [selectedSender]);
 
   const selectedSenderName = useMemo(() => {
     const group = senderGroups.find((item) => item.sender === selectedSender);
@@ -283,7 +313,7 @@ export default function InboxPage() {
           </aside>
 
           {/* RIGHT PANE: MESSAGES VIEW (7fr) */}
-          <section className="flex-1 flex flex-col bg-white dark:bg-[#0D1117] overflow-hidden">
+          <section className="relative flex-1 flex flex-col bg-white dark:bg-[#0D1117] overflow-hidden">
             {selectedSender ? (
               <>
                 {/* HEADER */}
@@ -304,6 +334,7 @@ export default function InboxPage() {
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: index * 0.03 }}
+                      onClick={() => setSelectedEmail(email)}
                       className="rounded-lg px-4 py-3 bg-[#F0F2F5] dark:bg-[#262C36] hover:bg-[#E5E9F0] dark:hover:bg-[#2D3748] transition-colors cursor-pointer"
                     >
                       <div className="flex items-start justify-between gap-3">
@@ -347,6 +378,76 @@ export default function InboxPage() {
                 <p className="text-sm opacity-60">Select a conversation to view messages</p>
               </div>
             )}
+
+            <AnimatePresence>
+              {selectedEmail && (
+                <>
+                  <motion.button
+                    type="button"
+                    aria-label="Close email preview"
+                    onClick={() => setSelectedEmail(null)}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="absolute inset-0 bg-black/25 z-20"
+                  />
+
+                  <motion.aside
+                    initial={{ x: "100%" }}
+                    animate={{ x: 0 }}
+                    exit={{ x: "100%" }}
+                    transition={{ type: "spring", stiffness: 280, damping: 30 }}
+                    className="absolute right-0 top-0 h-full w-full md:w-[88%] bg-white dark:bg-[#161B22] border-l border-[#E5E7EB] dark:border-[#30363D] z-30 flex flex-col"
+                  >
+                    <div className="px-5 py-4 border-b border-[#E5E7EB] dark:border-[#30363D] flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-xs uppercase tracking-wide opacity-60">Full Email</p>
+                        <h3 className="text-base font-semibold mt-1 truncate">
+                          {selectedEmail.subject || "(No Subject)"}
+                        </h3>
+                        <p className="text-xs opacity-70 mt-1 break-all">
+                          From: {extractSenderEmail(selectedEmail.from)}
+                        </p>
+                        <p className="text-xs opacity-60 mt-1">
+                          {selectedEmail.date
+                            ? new Date(selectedEmail.date).toLocaleString("en-US", {
+                                month: "short",
+                                day: "numeric",
+                                year: "numeric",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })
+                            : ""}
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => setSelectedEmail(null)}
+                        className="shrink-0 px-3 py-1.5 rounded-md border border-[#E5E7EB] dark:border-[#30363D] text-sm hover:bg-[#F4F6F8] dark:hover:bg-[#0D1117]"
+                      >
+                        Close
+                      </button>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto p-5">
+                      {selectedEmail.bodyHtml ? (
+                        <iframe
+                          title="Email content"
+                          sandbox="allow-popups allow-popups-to-escape-sandbox"
+                          srcDoc={buildEmailSrcDoc(selectedEmail.bodyHtml)}
+                          className="w-full h-full rounded-md border border-[#E5E7EB] dark:border-[#30363D] bg-white"
+                        />
+                      ) : (
+                        <pre className="whitespace-pre-wrap break-words text-sm leading-6 text-[#111827] dark:text-[#F3F4F6] font-sans">
+                          {selectedEmail.bodyText || selectedEmail.snippet || "No email body available."}
+                        </pre>
+                      )}
+                    </div>
+                  </motion.aside>
+                </>
+              )}
+            </AnimatePresence>
           </section>
         </div>
       )}

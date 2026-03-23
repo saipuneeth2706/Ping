@@ -14,7 +14,26 @@ type GmailMessageResponse = {
   threadId: string;
   snippet?: string;
   payload?: {
+    mimeType?: string;
     headers?: Array<{ name: string; value: string }>;
+    body?: {
+      data?: string;
+      size?: number;
+    };
+    parts?: Array<{
+      mimeType?: string;
+      body?: {
+        data?: string;
+        size?: number;
+      };
+      parts?: Array<{
+        mimeType?: string;
+        body?: {
+          data?: string;
+          size?: number;
+        };
+      }>;
+    }>;
   };
 };
 
@@ -25,6 +44,8 @@ type ParsedMessage = {
   subject: string;
   from: string;
   date: string;
+  bodyText: string;
+  bodyHtml: string;
 };
 
 function getHeaderValue(
@@ -34,6 +55,62 @@ function getHeaderValue(
   if (!headers) return "";
   const match = headers.find((header) => header.name.toLowerCase() === headerName.toLowerCase());
   return match?.value ?? "";
+}
+
+function decodeBase64Url(data: string | undefined) {
+  if (!data) return "";
+  try {
+    const normalized = data.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+    return Buffer.from(padded, "base64").toString("utf8");
+  } catch {
+    return "";
+  }
+}
+
+function getMessageBody(payload: GmailMessageResponse["payload"]) {
+  if (!payload) {
+    return { bodyText: "", bodyHtml: "" };
+  }
+
+  const walk = (
+    part: {
+      mimeType?: string;
+      body?: { data?: string };
+      parts?: Array<{ mimeType?: string; body?: { data?: string }; parts?: Array<any> }>;
+    },
+  ): { text: string; html: string } => {
+    let text = "";
+    let html = "";
+
+    if (part.mimeType === "text/plain") {
+      text = decodeBase64Url(part.body?.data);
+    }
+    if (part.mimeType === "text/html") {
+      html = decodeBase64Url(part.body?.data);
+    }
+
+    if (part.parts && part.parts.length > 0) {
+      for (const child of part.parts) {
+        const childBody = walk(child);
+        if (!text && childBody.text) text = childBody.text;
+        if (!html && childBody.html) html = childBody.html;
+      }
+    }
+
+    return { text, html };
+  };
+
+  const body = walk(payload);
+
+  if (!body.text && payload.body?.data) {
+    body.text = decodeBase64Url(payload.body.data);
+  }
+
+  return {
+    bodyText: body.text,
+    bodyHtml: body.html,
+  };
 }
 
 export async function GET(request: NextRequest) {
@@ -79,10 +156,7 @@ export async function GET(request: NextRequest) {
       const messageUrl = new URL(
         `https://gmail.googleapis.com/gmail/v1/users/me/messages/${message.id}`,
       );
-      messageUrl.searchParams.set("format", "metadata");
-      messageUrl.searchParams.append("metadataHeaders", "Subject");
-      messageUrl.searchParams.append("metadataHeaders", "From");
-      messageUrl.searchParams.append("metadataHeaders", "Date");
+      messageUrl.searchParams.set("format", "full");
 
       const messageResponse = await fetch(messageUrl.toString(), {
         headers: {
@@ -99,11 +173,14 @@ export async function GET(request: NextRequest) {
           subject: "",
           from: "",
           date: "",
+          bodyText: "",
+          bodyHtml: "",
         };
       }
 
       const detail = (await messageResponse.json()) as GmailMessageResponse;
       const headers = detail.payload?.headers;
+      const body = getMessageBody(detail.payload);
 
       return {
         id: detail.id,
@@ -112,6 +189,8 @@ export async function GET(request: NextRequest) {
         subject: getHeaderValue(headers, "Subject"),
         from: getHeaderValue(headers, "From"),
         date: getHeaderValue(headers, "Date"),
+        bodyText: body.bodyText,
+        bodyHtml: body.bodyHtml,
       };
     }),
   );
