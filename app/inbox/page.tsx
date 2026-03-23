@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { signIn, signOut, useSession } from "next-auth/react";
+import { useSession } from "next-auth/react";
 import { useEffect, useMemo, useState } from "react";
 
 type EmailItem = {
@@ -80,10 +80,25 @@ function extractSenderEmail(from: string): string {
 
 function buildEmailSrcDoc(html: string) {
   const trimmed = html.trim();
-  const hasHtmlTag = /<html[\s>]/i.test(trimmed);
+  const withAnchorTarget = trimmed.replace(
+    /<a(?![^>]*\btarget\s*=)([^>]*)>/gi,
+    '<a target="_blank" rel="noopener noreferrer"$1>',
+  );
+  const withSafeRel = withAnchorTarget.replace(
+    /<a([^>]*\btarget\s*=\s*["']?_blank["']?[^>]*)>/gi,
+    (match, attrs) => {
+      if (/\brel\s*=/.test(attrs)) return match;
+      return `<a${attrs} rel="noopener noreferrer">`;
+    },
+  );
+  const hasHtmlTag = /<html[\s>]/i.test(withSafeRel);
 
   if (hasHtmlTag) {
-    return trimmed;
+    if (/<head[\s>]/i.test(withSafeRel)) {
+      return withSafeRel.replace(/<head(.*?)>/i, '<head$1><base target="_blank">');
+    }
+
+    return withSafeRel.replace(/<html(.*?)>/i, '<html$1><head><base target="_blank"></head>');
   }
 
   return `<!doctype html>
@@ -91,13 +106,14 @@ function buildEmailSrcDoc(html: string) {
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <base target="_blank" />
     <style>
       :root { color-scheme: light; }
       html, body { margin: 0; padding: 0; }
       body { font-family: Arial, Helvetica, sans-serif; line-height: 1.45; color: #111827; }
     </style>
   </head>
-  <body>${trimmed}</body>
+  <body>${withSafeRel}</body>
 </html>`;
 }
 
@@ -203,27 +219,6 @@ export default function InboxPage() {
 
   return (
     <div className="h-screen w-screen flex flex-col bg-white dark:bg-[#0D1117] text-[#111827] dark:text-[#F9FAFB] overflow-hidden">
-      {/* HEADER */}
-      <div className="flex-shrink-0 px-6 py-4 border-b border-[#E5E7EB] dark:border-[#30363D] bg-white dark:bg-[#161B22]">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold">Ping</h1>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => signIn("google", { callbackUrl: "/inbox" })}
-              className="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white font-medium text-sm"
-            >
-              Sign in
-            </button>
-            <button
-              onClick={() => signOut({ callbackUrl: "/signup" })}
-              className="px-4 py-2 rounded-lg border border-[#E5E7EB] dark:border-[#30363D] text-sm"
-            >
-              Sign out
-            </button>
-          </div>
-        </div>
-      </div>
-
       {/* MAIN CONTENT */}
       {loading && (
         <div className="flex-1 flex items-center justify-center">
@@ -399,16 +394,15 @@ export default function InboxPage() {
                     transition={{ type: "spring", stiffness: 280, damping: 30 }}
                     className="absolute right-0 top-0 h-full w-full md:w-[88%] bg-white dark:bg-[#161B22] border-l border-[#E5E7EB] dark:border-[#30363D] z-30 flex flex-col"
                   >
-                    <div className="px-5 py-4 border-b border-[#E5E7EB] dark:border-[#30363D] flex items-start justify-between gap-3">
+                    <div className="px-4 py-2.5 border-b border-[#E5E7EB] dark:border-[#30363D] flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <p className="text-xs uppercase tracking-wide opacity-60">Full Email</p>
-                        <h3 className="text-base font-semibold mt-1 truncate">
+                        <h3 className="text-sm font-semibold truncate leading-5">
                           {selectedEmail.subject || "(No Subject)"}
                         </h3>
-                        <p className="text-xs opacity-70 mt-1 break-all">
+                        <p className="text-xs opacity-70 mt-0.5 break-all">
                           From: {extractSenderEmail(selectedEmail.from)}
                         </p>
-                        <p className="text-xs opacity-60 mt-1">
+                        <p className="text-xs opacity-60 mt-0.5">
                           {selectedEmail.date
                             ? new Date(selectedEmail.date).toLocaleString("en-US", {
                                 month: "short",
@@ -424,7 +418,7 @@ export default function InboxPage() {
                       <button
                         type="button"
                         onClick={() => setSelectedEmail(null)}
-                        className="shrink-0 px-3 py-1.5 rounded-md border border-[#E5E7EB] dark:border-[#30363D] text-sm hover:bg-[#F4F6F8] dark:hover:bg-[#0D1117]"
+                        className="shrink-0 px-2.5 py-1 rounded-md border border-[#E5E7EB] dark:border-[#30363D] text-xs hover:bg-[#F4F6F8] dark:hover:bg-[#0D1117]"
                       >
                         Close
                       </button>
