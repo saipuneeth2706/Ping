@@ -1,36 +1,63 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Ping - Your Inbox, Reimagined as a Chat
 
-## Getting Started
+Ping transforms your cluttered email inbox into a fast, intuitive, WhatsApp-style messaging experience. Turn cluttered email threads into clean, continuous chat bubbles.
 
-First, run the development server:
+## 🚀 Current Project Status
+
+The project is currently in **Beta**. The core landing page and functional inbox interface are fully implemented and integrated with Gmail via Google OAuth.
+
+### 🛠 Tech Stack
+- **Framework:** [Next.js 15+](https://nextjs.org) (App Router)
+- **Styling:** [Tailwind CSS](https://tailwindcss.com)
+- **Animations:** [Framer Motion](https://www.framer.com/motion/)
+- **Authentication:** [NextAuth.js](https://next-auth.js.org) with Google OAuth
+- **AI Integration:** Custom AI summarization engine
+- **State Management:** React Hooks & SyncExternalStore
+
+## ✨ Key Features
+
+### 📨 Conversational View
+- **Chat-like Interface:** Emails are grouped by sender into beautiful chat bubbles, stripping away messy signatures and headers.
+- **Threaded Conversations:** View the entire history of a conversation in a single, continuous flow.
+
+### 🤖 AI-Powered Intelligence
+- **Instant Summarization:** Get the gist of long email threads with one click using our AI summarization tool.
+- **Smart Snippets:** Quick previews that highlight the most important parts of an email.
+
+### 🔄 Seamless Gmail Integration
+- **Real-time Sync:** Connect your existing Gmail account. Everything stays in sync across all your devices.
+- **Full Mail Support:** Support for Starred, Archived, Sent, and Drafts labels.
+
+### ✉️ Rich Compose & Reply
+- **Familiar Shortcuts:** Swipe-to-archive and instant replies.
+- **Advanced Composition:** Support for CC, BCC, and file attachments (up to 25MB).
+- **Threaded Replies:** Automatically maintain email thread context when replying.
+
+### 🌓 Modern UI/UX
+- **Dark/Light Mode:** Full support for dark and light themes with system preference detection.
+- **Responsive Design:** Optimized for mobile, tablet, and desktop viewing.
+- **Smooth Animations:** High-performance scroll-triggered animations and transitions.
+
+### 🔍 Smart Search
+- **Contact Filtering:** Quickly find conversations by searching for contact names.
+- **Natural Language:** (In Progress) Advanced search queries for finding specific content.
+
+## 🛠 Getting Started
+
+First, install dependencies:
+
+```bash
+npm install
+```
+
+Then, run the development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 📄 License
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+This project is licensed under the MIT License - see the LICENSE file for details.
