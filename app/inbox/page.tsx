@@ -51,19 +51,19 @@ type ComposeAttachmentPayload = {
 // Extract sender name from email address
 function extractSenderName(from: string): string {
   if (!from) return "Unknown";
-  
+
   // Handle "Name <email@domain.com>" format
   const nameMatch = from.match(/^([^<]+)</);
   if (nameMatch) {
     return nameMatch[1].trim();
   }
-  
+
   // Handle plain email format
   const emailMatch = from.match(/^([^@]+)@/);
   if (emailMatch) {
     return emailMatch[1].charAt(0).toUpperCase() + emailMatch[1].slice(1);
   }
-  
+
   return from;
 }
 
@@ -143,10 +143,16 @@ function buildEmailSrcDoc(html: string) {
 
   if (hasHtmlTag) {
     if (/<head[\s>]/i.test(withSafeRel)) {
-      return withSafeRel.replace(/<head(.*?)>/i, '<head$1><base target="_blank">');
+      return withSafeRel.replace(
+        /<head(.*?)>/i,
+        '<head$1><base target="_blank">',
+      );
     }
 
-    return withSafeRel.replace(/<html(.*?)>/i, '<html$1><head><base target="_blank"></head>');
+    return withSafeRel.replace(
+      /<html(.*?)>/i,
+      '<html$1><head><base target="_blank"></head>',
+    );
   }
 
   return `<!doctype html>
@@ -218,9 +224,15 @@ export default function InboxPage() {
   const [composeSubject, setComposeSubject] = useState("");
   const [composeBody, setComposeBody] = useState("");
   const [composeAttachments, setComposeAttachments] = useState<File[]>([]);
-  const [summaryByEmailId, setSummaryByEmailId] = useState<Record<string, string>>({});
-  const [summaryErrorByEmailId, setSummaryErrorByEmailId] = useState<Record<string, string>>({});
-  const [summarizingByEmailId, setSummarizingByEmailId] = useState<Record<string, boolean>>({});
+  const [summaryByEmailId, setSummaryByEmailId] = useState<
+    Record<string, string>
+  >({});
+  const [summaryErrorByEmailId, setSummaryErrorByEmailId] = useState<
+    Record<string, string>
+  >({});
+  const [summarizingByEmailId, setSummarizingByEmailId] = useState<
+    Record<string, boolean>
+  >({});
 
   const buildEmailsUrl = (pageToken?: string, query?: string) => {
     const params = new URLSearchParams();
@@ -296,10 +308,9 @@ export default function InboxPage() {
     setLoadingMoreEmails(true);
 
     try {
-      const response = await fetch(
-        buildEmailsUrl(nextPageToken),
-        { cache: "no-store" },
-      );
+      const response = await fetch(buildEmailsUrl(nextPageToken), {
+        cache: "no-store",
+      });
 
       if (!response.ok) {
         const data = (await response.json()) as { error?: string };
@@ -335,10 +346,14 @@ export default function InboxPage() {
     return Array.from(groups.entries())
       .map(([counterpartEmail, senderEmails]) => {
         const latestEmail = senderEmails.reduce((latest, current) => {
-          return getDateTimestamp(current.date) > getDateTimestamp(latest.date) ? current : latest;
+          return getDateTimestamp(current.date) > getDateTimestamp(latest.date)
+            ? current
+            : latest;
         }, senderEmails[0]);
 
-        const nameSource = latestEmail?.isSent ? latestEmail?.to : latestEmail?.from;
+        const nameSource = latestEmail?.isSent
+          ? latestEmail?.to
+          : latestEmail?.from;
         const extractedName = extractSenderName(nameSource || "").trim();
         const displayName =
           !extractedName || extractedName.includes("@")
@@ -354,7 +369,10 @@ export default function InboxPage() {
           latestSubject: latestEmail?.subject || "No subject",
         };
       })
-      .sort((a, b) => getDateTimestamp(b.latestDate) - getDateTimestamp(a.latestDate));
+      .sort(
+        (a, b) =>
+          getDateTimestamp(b.latestDate) - getDateTimestamp(a.latestDate),
+      );
   }, [emails]);
 
   const filteredSenderGroups = useMemo(() => {
@@ -366,7 +384,10 @@ export default function InboxPage() {
   }, [debouncedSearchQuery, senderGroups]);
 
   const activeSender = useMemo(() => {
-    if (selectedSender && filteredSenderGroups.some((group) => group.sender === selectedSender)) {
+    if (
+      selectedSender &&
+      filteredSenderGroups.some((group) => group.sender === selectedSender)
+    ) {
       return selectedSender;
     }
     return filteredSenderGroups[0]?.sender ?? "";
@@ -374,37 +395,55 @@ export default function InboxPage() {
 
   const selectedSenderMessages = useMemo(() => {
     if (!activeSender) return [];
-    const group = filteredSenderGroups.find((item) => item.sender === activeSender);
-    return [...(group?.emails ?? [])].sort((a, b) => getDateTimestamp(a.date) - getDateTimestamp(b.date));
+    const group = filteredSenderGroups.find(
+      (item) => item.sender === activeSender,
+    );
+    return [...(group?.emails ?? [])].sort(
+      (a, b) => getDateTimestamp(a.date) - getDateTimestamp(b.date),
+    );
   }, [activeSender, filteredSenderGroups]);
 
   const visibleSelectedEmail = useMemo(() => {
     if (!selectedEmail) return null;
-    return selectedSenderMessages.some((email) => email.id === selectedEmail.id) ? selectedEmail : null;
+    return selectedSenderMessages.some((email) => email.id === selectedEmail.id)
+      ? selectedEmail
+      : null;
   }, [selectedEmail, selectedSenderMessages]);
 
   const selectedSenderName = useMemo(() => {
-    const group = filteredSenderGroups.find((item) => item.sender === activeSender);
+    const group = filteredSenderGroups.find(
+      (item) => item.sender === activeSender,
+    );
     return group?.senderName || "";
   }, [activeSender, filteredSenderGroups]);
 
   const attachmentEncodedSizeTotal = useMemo(() => {
-    return composeAttachments.reduce((total, file) => total + estimateBase64Size(file.size), 0);
+    return composeAttachments.reduce(
+      (total, file) => total + estimateBase64Size(file.size),
+      0,
+    );
   }, [composeAttachments]);
 
   const attachmentLimitLabel = `${formatBytes(attachmentEncodedSizeTotal)} / ${formatBytes(
     GMAIL_ATTACHMENT_LIMIT_BYTES,
   )}`;
 
-  const handleAttachmentSelection = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAttachmentSelection = (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     const chosenFiles = Array.from(event.target.files ?? []);
     if (chosenFiles.length === 0) return;
 
     const merged = [...composeAttachments, ...chosenFiles];
-    const mergedEncodedSize = merged.reduce((total, file) => total + estimateBase64Size(file.size), 0);
+    const mergedEncodedSize = merged.reduce(
+      (total, file) => total + estimateBase64Size(file.size),
+      0,
+    );
 
     if (mergedEncodedSize > GMAIL_ATTACHMENT_LIMIT_BYTES) {
-      setComposeError("Attachments exceed Gmail 25MB limit. Please remove some files.");
+      setComposeError(
+        "Attachments exceed Gmail 25MB limit. Please remove some files.",
+      );
       event.target.value = "";
       return;
     }
@@ -415,7 +454,9 @@ export default function InboxPage() {
   };
 
   const handleRemoveAttachment = (index: number) => {
-    setComposeAttachments((prev) => prev.filter((_, currentIndex) => currentIndex !== index));
+    setComposeAttachments((prev) =>
+      prev.filter((_, currentIndex) => currentIndex !== index),
+    );
   };
 
   const handleComposeSend = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -427,7 +468,9 @@ export default function InboxPage() {
     }
 
     if (attachmentEncodedSizeTotal > GMAIL_ATTACHMENT_LIMIT_BYTES) {
-      setComposeError("Attachments exceed Gmail 25MB limit. Please remove some files.");
+      setComposeError(
+        "Attachments exceed Gmail 25MB limit. Please remove some files.",
+      );
       return;
     }
 
@@ -510,7 +553,9 @@ export default function InboxPage() {
       ? extractFirstRecipientEmail(email.to)
       : extractSenderEmail(email.from);
     const currentSubject = (email.subject || "(No Subject)").trim();
-    const replySubject = /^re:/i.test(currentSubject) ? currentSubject : `Re: ${currentSubject}`;
+    const replySubject = /^re:/i.test(currentSubject)
+      ? currentSubject
+      : `Re: ${currentSubject}`;
     const sentAt = email.date
       ? new Date(email.date).toLocaleString("en-US", {
           month: "short",
@@ -553,7 +598,10 @@ export default function InboxPage() {
         body: JSON.stringify(buildSummaryInput(email)),
       });
 
-      const data = (await response.json()) as { summary?: string; error?: string };
+      const data = (await response.json()) as {
+        summary?: string;
+        error?: string;
+      };
 
       if (!response.ok) {
         setSummaryErrorByEmailId((prev) => ({
@@ -603,13 +651,16 @@ export default function InboxPage() {
         </div>
       )}
 
-      {!loading && !error && emails.length === 0 && status === "authenticated" && (
-        <div className="flex-1 flex items-center justify-center px-6">
-          <div className="p-5 rounded-xl border border-[#E5E7EB] dark:border-[#30363D]">
-            No emails yet. Connect your Gmail and messages will appear here.
+      {!loading &&
+        !error &&
+        emails.length === 0 &&
+        status === "authenticated" && (
+          <div className="flex-1 flex items-center justify-center px-6">
+            <div className="p-5 rounded-xl border border-[#E5E7EB] dark:border-[#30363D]">
+              No emails yet. Connect your Gmail and messages will appear here.
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
       {!loading && !error && emails.length > 0 && (
         <div className="flex-1 flex overflow-hidden">
@@ -620,7 +671,8 @@ export default function InboxPage() {
                 <div>
                   <h2 className="text-base font-bold">Chats</h2>
                   <p className="text-xs opacity-60 mt-0.5">
-                    {filteredSenderGroups.length} of {senderGroups.length} conversations
+                    {filteredSenderGroups.length} of {senderGroups.length}{" "}
+                    conversations
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -632,7 +684,11 @@ export default function InboxPage() {
                     disabled={loadingMoreEmails || !nextPageToken}
                     className="inline-flex items-center rounded-md border border-[#D1D5DB] dark:border-[#374151] px-2.5 py-1 text-xs font-semibold text-[#111827] dark:text-[#F9FAFB] hover:bg-[#F3F4F6] dark:hover:bg-[#0D1117] disabled:opacity-60"
                   >
-                    {loadingMoreEmails ? "Loading..." : nextPageToken ? "Fetch 500" : "No more"}
+                    {loadingMoreEmails
+                      ? "Loading..."
+                      : nextPageToken
+                        ? "Fetch 500"
+                        : "No more"}
                   </button>
                   <button
                     type="button"
@@ -676,9 +732,15 @@ export default function InboxPage() {
                 </button>
               </div>
 
-              <p className="mt-1 text-[11px] opacity-60">Auto-search runs after you pause typing.</p>
+              <p className="mt-1 text-[11px] opacity-60">
+                Auto-search runs after you pause typing.
+              </p>
 
-              {composeSuccess && <p className="text-[11px] text-emerald-600 mt-1">{composeSuccess}</p>}
+              {composeSuccess && (
+                <p className="text-[11px] text-emerald-600 mt-1">
+                  {composeSuccess}
+                </p>
+              )}
             </div>
 
             <div className="flex-1 overflow-y-auto scrollbar-hide">
@@ -705,21 +767,26 @@ export default function InboxPage() {
 
                     {/* SENDER INFO */}
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm truncate">{group.senderName}</p>
+                      <p className="font-medium text-sm truncate">
+                        {group.senderName}
+                      </p>
                       <p className="text-xs opacity-60 truncate mt-0.5">
                         {group.latestSubject}
                       </p>
                       <div className="flex items-center justify-between mt-1">
-                          <div className="flex items-center gap-1">
-                            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-500 text-white text-xs font-semibold">
-                              {group.emails.length}
-                            </span>
-                          </div>
+                        <div className="flex items-center gap-1">
+                          <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-500 text-white text-xs font-semibold">
+                            {group.emails.length}
+                          </span>
+                        </div>
                         <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
-                          {new Date(group.latestDate).toLocaleDateString("en-US", {
-                            month: "short",
-                            day: "numeric",
-                          })}
+                          {new Date(group.latestDate).toLocaleDateString(
+                            "en-US",
+                            {
+                              month: "short",
+                              day: "numeric",
+                            },
+                          )}
                         </span>
                       </div>
                     </div>
@@ -744,9 +811,12 @@ export default function InboxPage() {
                 {/* HEADER */}
                 <div className="px-6 py-3 border-b border-[#E5E7EB] dark:border-[#30363D] flex-shrink-0 bg-white dark:bg-[#161B22]">
                   <div>
-                    <h2 className="text-base font-bold">{selectedSenderName}</h2>
+                    <h2 className="text-base font-bold">
+                      {selectedSenderName}
+                    </h2>
                     <p className="text-xs opacity-60 mt-0.5">
-                      {selectedSenderMessages.length} message{selectedSenderMessages.length !== 1 ? "s" : ""}
+                      {selectedSenderMessages.length} message
+                      {selectedSenderMessages.length !== 1 ? "s" : ""}
                     </p>
                   </div>
                 </div>
@@ -761,7 +831,9 @@ export default function InboxPage() {
                       transition={{ delay: index * 0.03 }}
                       className={`flex flex-col ${email.isSent ? "items-end" : "items-start"}`}
                     >
-                      <div className={`flex items-start gap-2 ${email.isSent ? "flex-row-reverse" : ""}`}>
+                      <div
+                        className={`flex items-start gap-2 ${email.isSent ? "flex-row-reverse" : ""}`}
+                      >
                         <motion.button
                           type="button"
                           onClick={() => void handleSummarizeEmail(email)}
@@ -774,7 +846,9 @@ export default function InboxPage() {
                         <motion.button
                           type="button"
                           onClick={() => setSelectedEmail(email)}
-                          animate={{ scale: summaryByEmailId[email.id] ? 1.01 : 1 }}
+                          animate={{
+                            scale: summaryByEmailId[email.id] ? 1.01 : 1,
+                          }}
                           transition={{ duration: 0.2, ease: "easeOut" }}
                           className={`max-w-[82%] rounded-2xl px-4 py-3 text-left transition-colors cursor-pointer border ${
                             email.isSent
@@ -787,7 +861,9 @@ export default function InboxPage() {
                           }`}
                         >
                           <div className="flex items-center justify-between gap-2">
-                            <p className={`font-medium text-sm truncate ${email.isSent ? "text-white" : ""}`}>
+                            <p
+                              className={`font-medium text-sm truncate ${email.isSent ? "text-white" : ""}`}
+                            >
                               {email.subject || "(No Subject)"}
                             </p>
                             <span
@@ -806,27 +882,31 @@ export default function InboxPage() {
                                   : "Received"}
                             </span>
                           </div>
-                            <AnimatePresence mode="wait" initial={false}>
-                              <motion.p
-                                key={`${email.id}-${summaryByEmailId[email.id] ? "ai" : summaryErrorByEmailId[email.id] ? "error" : "normal"}`}
-                                initial={{ opacity: 0, y: 6 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: -4 }}
-                                transition={{ duration: 0.2, ease: "easeOut" }}
-                                className={`text-xs mt-1.5 line-clamp-2 ${
-                                  email.isSent
-                                    ? "text-white/95"
-                                    : summaryByEmailId[email.id]
-                                      ? "text-sky-800 dark:text-sky-100"
-                                      : "opacity-75"
-                                }`}
-                              >
-                                {summaryErrorByEmailId[email.id]
-                                  ? summaryErrorByEmailId[email.id]
-                                  : summaryByEmailId[email.id] || email.snippet || "No preview available."}
-                              </motion.p>
-                            </AnimatePresence>
-                          <p className={`text-[11px] mt-2 ${email.isSent ? "text-white/80" : "opacity-55"}`}>
+                          <AnimatePresence mode="wait" initial={false}>
+                            <motion.p
+                              key={`${email.id}-${summaryByEmailId[email.id] ? "ai" : summaryErrorByEmailId[email.id] ? "error" : "normal"}`}
+                              initial={{ opacity: 0, y: 6 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: -4 }}
+                              transition={{ duration: 0.2, ease: "easeOut" }}
+                              className={`text-xs mt-1.5 line-clamp-2 ${
+                                email.isSent
+                                  ? "text-white/95"
+                                  : summaryByEmailId[email.id]
+                                    ? "text-sky-800 dark:text-sky-100"
+                                    : "opacity-75"
+                              }`}
+                            >
+                              {summaryErrorByEmailId[email.id]
+                                ? summaryErrorByEmailId[email.id]
+                                : summaryByEmailId[email.id] ||
+                                  email.snippet ||
+                                  "No preview available."}
+                            </motion.p>
+                          </AnimatePresence>
+                          <p
+                            className={`text-[11px] mt-2 ${email.isSent ? "text-white/80" : "opacity-55"}`}
+                          >
                             {email.date
                               ? new Date(email.date).toLocaleString("en-US", {
                                   month: "short",
@@ -844,7 +924,9 @@ export default function InboxPage() {
 
                   {selectedSenderMessages.length === 0 && (
                     <div className="flex items-center justify-center h-full">
-                      <p className="text-sm opacity-60">No messages from this sender.</p>
+                      <p className="text-sm opacity-60">
+                        No messages from this sender.
+                      </p>
                     </div>
                   )}
                 </div>
@@ -892,7 +974,9 @@ export default function InboxPage() {
                         </p>
                         <p className="text-xs opacity-60 mt-0.5">
                           {visibleSelectedEmail.date
-                            ? new Date(visibleSelectedEmail.date).toLocaleString("en-US", {
+                            ? new Date(
+                                visibleSelectedEmail.date,
+                              ).toLocaleString("en-US", {
                                 month: "short",
                                 day: "numeric",
                                 year: "numeric",
@@ -906,7 +990,9 @@ export default function InboxPage() {
                       <div className="shrink-0 flex items-center gap-2">
                         <button
                           type="button"
-                          onClick={() => handleReplyFromEmail(visibleSelectedEmail)}
+                          onClick={() =>
+                            handleReplyFromEmail(visibleSelectedEmail)
+                          }
                           className="px-2.5 py-1 rounded-md border border-emerald-500 bg-emerald-500 text-white text-xs hover:bg-emerald-600"
                         >
                           Reply
@@ -926,7 +1012,9 @@ export default function InboxPage() {
                         <iframe
                           title="Email content"
                           sandbox="allow-popups allow-popups-to-escape-sandbox"
-                          srcDoc={buildEmailSrcDoc(visibleSelectedEmail.bodyHtml)}
+                          srcDoc={buildEmailSrcDoc(
+                            visibleSelectedEmail.bodyHtml,
+                          )}
                           className="w-full h-full rounded-md border border-[#E5E7EB] dark:border-[#30363D] bg-white"
                         />
                       ) : (
@@ -968,9 +1056,14 @@ export default function InboxPage() {
               transition={{ type: "spring", stiffness: 300, damping: 28 }}
               className="fixed bottom-3 left-3 right-3 sm:left-auto sm:right-4 sm:bottom-4 z-50 sm:w-[44rem] sm:max-w-[calc(100vw-1rem)] sm:h-[28rem] max-h-[82vh] rounded-xl border border-[#E5E7EB] dark:border-[#30363D] bg-white dark:bg-[#161B22] shadow-2xl overflow-hidden"
             >
-              <form onSubmit={handleComposeSend} className="p-4 h-full flex flex-col gap-4">
+              <form
+                onSubmit={handleComposeSend}
+                className="p-4 h-full flex flex-col gap-4"
+              >
                 <div className="flex items-center justify-between border-b border-[#E5E7EB] dark:border-[#30363D] pb-3">
-                  <h3 className="text-sm font-semibold tracking-tight">Compose email</h3>
+                  <h3 className="text-sm font-semibold tracking-tight">
+                    Compose email
+                  </h3>
                   <button
                     type="button"
                     onClick={() => setComposeOpen(false)}
@@ -1012,7 +1105,9 @@ export default function InboxPage() {
                         <input
                           type="text"
                           value={composeBcc}
-                          onChange={(event) => setComposeBcc(event.target.value)}
+                          onChange={(event) =>
+                            setComposeBcc(event.target.value)
+                          }
                           placeholder="bcc@example.com"
                           className="w-full rounded-md border border-[#D1D5DB] dark:border-[#374151] bg-white dark:bg-[#0D1117] px-3 py-2 text-sm outline-none focus:border-emerald-500 dark:focus:border-emerald-400 focus:ring-0"
                         />
@@ -1024,7 +1119,9 @@ export default function InboxPage() {
                       <input
                         type="text"
                         value={composeSubject}
-                        onChange={(event) => setComposeSubject(event.target.value)}
+                        onChange={(event) =>
+                          setComposeSubject(event.target.value)
+                        }
                         placeholder="Subject"
                         className="w-full rounded-md border border-[#D1D5DB] dark:border-[#374151] bg-white dark:bg-[#0D1117] px-3 py-2 text-sm outline-none focus:border-emerald-500 dark:focus:border-emerald-400 focus:ring-0"
                       />
@@ -1038,14 +1135,16 @@ export default function InboxPage() {
                       onChange={(event) => setComposeBody(event.target.value)}
                       placeholder="Write your message..."
                       rows={8}
-                        className="w-full min-h-[9.5rem] rounded-md border border-[#D1D5DB] dark:border-[#374151] bg-white dark:bg-[#0D1117] px-3 py-2.5 text-sm outline-none focus:border-emerald-500 dark:focus:border-emerald-400 focus:ring-0"
+                      className="w-full min-h-[9.5rem] rounded-md border border-[#D1D5DB] dark:border-[#374151] bg-white dark:bg-[#0D1117] px-3 py-2.5 text-sm outline-none focus:border-emerald-500 dark:focus:border-emerald-400 focus:ring-0"
                     />
                   </label>
 
                   <div className="space-y-2 pt-3 border-t border-[#E5E7EB] dark:border-[#30363D]">
                     <div className="flex items-center justify-between">
                       <label className="text-xs font-medium">Attachments</label>
-                      <span className="text-xs opacity-70">{attachmentLimitLabel}</span>
+                      <span className="text-xs opacity-70">
+                        {attachmentLimitLabel}
+                      </span>
                     </div>
 
                     <input
@@ -1058,10 +1157,15 @@ export default function InboxPage() {
                     {composeAttachments.length > 0 && (
                       <div className="max-h-24 overflow-y-auto scrollbar-hide space-y-1.5 rounded-md border border-[#E5E7EB] dark:border-[#30363D] p-2">
                         {composeAttachments.map((file, index) => (
-                          <div key={`${file.name}-${index}`} className="flex items-center justify-between gap-2 text-xs">
+                          <div
+                            key={`${file.name}-${index}`}
+                            className="flex items-center justify-between gap-2 text-xs"
+                          >
                             <p className="truncate">{file.name}</p>
                             <div className="flex items-center gap-2 shrink-0">
-                              <span className="opacity-70">{formatBytes(file.size)}</span>
+                              <span className="opacity-70">
+                                {formatBytes(file.size)}
+                              </span>
                               <button
                                 type="button"
                                 onClick={() => handleRemoveAttachment(index)}
