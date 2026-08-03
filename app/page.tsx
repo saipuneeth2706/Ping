@@ -430,15 +430,15 @@ export default function Home() {
                       <div className="flex items-center justify-center">
                         <motion.div
                           className="w-12 h-12 rounded-full bg-emerald-500 flex items-center justify-center"
-                          animate={{
-                            scale: [1, 1.1, 1],
-                            boxShadow: [
-                              "0 0 0 0 rgba(16, 185, 129, 0.4)",
-                              "0 0 0 10px rgba(16, 185, 129, 0)",
-                              "0 0 0 0 rgba(16, 185, 129, 0)",
-                            ],
-                          }}
-                          transition={{ duration: 2, repeat: Infinity }}
+                          //                          animate={{
+                          //                           scale: [1, 1.1, 1],
+                          //                          boxShadow: [
+                          //                           "0 0 0 0 rgba(16, 185, 129, 0.4)",
+                          //                          "0 0 0 10px rgba(16, 185, 129, 0)",
+                          //                         "0 0 0 0 rgba(16, 185, 129, 0)",
+                          //                      ],
+                          //                   }}
+                          //                  transition={{ duration: 2, repeat: Infinity }}
                         >
                           <svg
                             className="w-6 h-6 text-white"
