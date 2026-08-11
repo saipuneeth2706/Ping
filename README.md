@@ -1,6 +1,10 @@
 # Ping - Your Inbox, Reimagined as a Chat
 
+[![Live Demo](https://img.shields.io/badge/Live_Demo-ping.saipuneeth.me-brightgreen?style=for-the-badge)](https://ping.saipuneeth.me)
+
 Ping transforms your cluttered email inbox into a fast, intuitive, WhatsApp-style messaging experience. Turn cluttered email threads into clean, continuous chat bubbles.
+
+> **Try the live demo:** [ping.saipuneeth.me](https://ping.saipuneeth.me)
 
 ## Current Project Status
 
