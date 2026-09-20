@@ -1,1088 +1,774 @@
 "use client";
 
-import { useEffect, useSyncExternalStore, useState, useRef } from "react";
-import {
-  motion,
-  useInView,
-  AnimatePresence,
-  useScroll,
-  useMotionValueEvent,
-} from "framer-motion";
-import LineWaves from "./components/LineWaves";
+import { motion, useInView, MotionConfig } from "framer-motion";
+import { useRef, useState, type ReactNode } from "react";
 
-function getServerSnapshot() {
-  return false;
-}
+const EASE: [number, number, number, number] = [0.21, 0.6, 0.35, 1];
 
-function subscribe(callback: () => void) {
-  window.addEventListener("storage", callback);
-  return () => window.removeEventListener("storage", callback);
-}
-
-function getClientSnapshot() {
-  if (typeof window === "undefined") return false;
-  const stored = localStorage.getItem("ping-dark-mode");
-  if (stored !== null) return JSON.parse(stored);
-  return window.matchMedia("(prefers-color-scheme: dark)").matches;
-}
-
-function FadeIn({
+function Reveal({
   children,
   delay = 0,
   className = "",
+  y = 30,
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
   delay?: number;
   className?: string;
+  y?: number;
 }) {
-  const ref = React.useRef(null);
-  const isInView = useInView(ref, { once: true, margin: "-50px" });
+  const ref = useRef<HTMLDivElement>(null);
+  const inView = useInView(ref, { once: true, margin: "-70px" });
 
   return (
     <motion.div
       ref={ref}
-      initial={{ opacity: 0, y: 30 }}
-      animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
-      transition={{ duration: 0.6, delay, ease: "easeOut" }}
+      initial={{ opacity: 0, y }}
+      animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y }}
+      transition={{ duration: 0.8, delay, ease: EASE }}
       className={className}
     >
       {children}
     </motion.div>
   );
 }
+//
+// function Eyebrow({
+//   children,
+//   className = "",
+// }: {
+//   children: ReactNode;
+//   className?: string;
+// }) {
+//   return (
+//     <p
+//       className={`flex items-center gap-2.5 text-sm font-medium tracking-[0.16em] text-mute ${className}`}
+//     >
+//       <span className="h-1.5 w-1.5 rounded-full bg-accent" />
+//       {children}
+//     </p>
+//   );
+// }
 
-function StaggerContainer({
-  children,
-  className = "",
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  const ref = React.useRef(null);
-  const isInView = useInView(ref, { once: true, margin: "-50px" });
-
+function Nav() {
   return (
-    <motion.div
-      ref={ref}
-      initial="hidden"
-      animate={isInView ? "visible" : "hidden"}
-      variants={{
-        visible: { transition: { staggerChildren: 0.15 } },
-        hidden: {},
-      }}
-      className={className}
-    >
-      {children}
-    </motion.div>
+    <header className="fixed inset-x-0 top-3 z-40 flex justify-center px-4">
+      <motion.nav
+        initial={{ y: -24, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.7, ease: EASE }}
+        className="flex w-full max-w-md items-center justify-between rounded-full border border-ink/5 bg-white/70 py-2 pl-2 pr-3 shadow-soft backdrop-blur-xl"
+      >
+        <a
+          href="#top"
+          className="flex items-center gap-2.5 rounded-full py-1 pl-1.5 pr-3"
+        >
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-accent">
+            <span className="h-2 w-2 rounded-full bg-white" />
+          </span>
+          <span className="font-medium tracking-tight text-ink">Ping</span>
+        </a>
+        <span className="hidden items-center gap-1.5 rounded-full border border-ink/5 bg-white/70 px-3 py-1 text-xs font-medium text-mute sm:flex">
+          <span className="h-1.5 w-1.5 rounded-full bg-accent" />
+          Beta
+        </span>
+        <a
+          href="/signup"
+          className="rounded-full bg-ink px-4.5 py-2.5 text-sm font-medium text-canvas shadow-soft transition-colors duration-300 hover:bg-ink/90"
+        >
+          Sign up
+        </a>
+      </motion.nav>
+    </header>
   );
 }
 
-function StaggerItem({ children }: { children: React.ReactNode }) {
+function Hero() {
   return (
-    <motion.div
-      variants={{
-        hidden: { opacity: 0, y: 20 },
-        visible: { opacity: 1, y: 0 },
-      }}
-      transition={{ duration: 0.5, ease: "easeOut" }}
-    >
-      {children}
-    </motion.div>
-  );
-}
-
-function ScaleIn({
-  children,
-  delay = 0,
-  className = "",
-}: {
-  children: React.ReactNode;
-  delay?: number;
-  className?: string;
-}) {
-  const ref = React.useRef(null);
-  const isInView = useInView(ref, { once: true, margin: "-50px" });
-
-  return (
-    <motion.div
-      ref={ref}
-      initial={{ opacity: 0, scale: 0.9 }}
-      animate={isInView ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.9 }}
-      transition={{ duration: 0.5, delay, ease: "easeOut" }}
-      className={className}
-    >
-      {children}
-    </motion.div>
-  );
-}
-
-import React from "react";
-
-export default function Home() {
-  const darkMode = useSyncExternalStore(
-    subscribe,
-    getClientSnapshot,
-    getServerSnapshot,
-  );
-  const [mounted, setMounted] = useState(false);
-  const [headerVisible, setHeaderVisible] = useState(true);
-  const [footerVisible, setFooterVisible] = useState(false);
-  const lastScrollY = useRef(0);
-  const { scrollY, scrollYProgress } = useScroll();
-
-  useMotionValueEvent(scrollY, "change", (latest) => {
-    const currentScrollY = latest;
-    if (currentScrollY > lastScrollY.current && currentScrollY > 100) {
-      setHeaderVisible(false);
-    } else {
-      setHeaderVisible(true);
-    }
-    lastScrollY.current = currentScrollY;
-  });
-
-  useMotionValueEvent(scrollYProgress, "change", (latest) => {
-    setFooterVisible(latest > 0.95);
-  });
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (darkMode) {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-    }
-  }, [darkMode]);
-
-  const toggleDarkMode = () => {
-    localStorage.setItem("ping-dark-mode", JSON.stringify(!darkMode));
-    window.dispatchEvent(new Event("storage"));
-  };
-
-  return (
-    <div
-      className={`relative min-h-screen transition-colors duration-300 ${darkMode ? "bg-[#0D1117] text-[#F9FAFB]" : "bg-[#FAFBFC] text-[#111827]"}`}
-    >
-      {/* Animated Wave Background */}
-      <div className="fixed inset-0 z-0">
-        <LineWaves
-          speed={0.1}
-          innerLineCount={32}
-          outerLineCount={36}
-          warpIntensity={1.0}
-          rotation={-45}
-          edgeFadeWidth={0.0}
-          colorCycleSpeed={1.0}
-          brightness={darkMode ? 0.1 : 0.15}
-          color1={darkMode ? "#34D399" : "#059669"}
-          color2={darkMode ? "#2DD4BF" : "#0D9488"}
-          color3={darkMode ? "#6EE7B7" : "#10B981"}
-          enableMouseInteraction={true}
-          mouseInfluence={2.0}
+    <section id="top" className="relative overflow-hidden px-6 pt-36 pb-20 sm:pt-48 sm:pb-28">
+      {/* ambient blobs */}
+      <div aria-hidden className="pointer-events-none absolute inset-0">
+        <motion.div
+          className="absolute -left-40 top-4 h-[26rem] w-[26rem] rounded-full bg-cream opacity-60 blur-3xl"
+          animate={{ y: [0, -12, 0] }}
+          transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+        />
+        <motion.div
+          className="absolute -right-40 top-24 h-[24rem] w-[24rem] rounded-full bg-lavender opacity-60 blur-3xl"
+          animate={{ y: [0, 12, 0] }}
+          transition={{ duration: 6, repeat: Infinity, ease: "easeInOut", delay: 1.2 }}
         />
       </div>
-      <div className="relative z-10">
-        {/* Navigation */}
-        <AnimatePresence mode="wait">
-          {headerVisible && (
-            <motion.nav
-              initial={{ y: -100 }}
-              animate={{ y: 0 }}
-              exit={{ y: -100 }}
-              transition={{ duration: 0.3, ease: "easeOut" }}
-              className={`fixed top-0 left-0 right-0 z-50 backdrop-blur-xl ${darkMode ? "bg-[#0D1117]/95 border-[#30363D]" : "bg-[#FAFBFC]/95 border-[#E5E7EB]"} border-b`}
+
+      <div className="relative mx-auto max-w-3xl text-center">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 0.15, ease: EASE }}
+          className="mb-7 inline-flex items-center gap-2 rounded-full border border-ink/5 bg-white/70 px-4 py-1.5 text-sm text-mute shadow-soft backdrop-blur"
+        >
+          <span className="h-1.5 w-1.5 rounded-full bg-accent" />
+          Beta — email, refolded into chats
+        </motion.div>
+
+        <motion.h1
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.9, delay: 0.25, ease: EASE }}
+          className="text-[2.8rem] leading-[1.05] tracking-[-0.025em] sm:text-6xl lg:text-[4.4rem]"
+        >
+          Your inbox,{" "}
+          <span className="font-script relative inline-block rotate-[-3deg] text-[1.35em] leading-[0.85] text-accent-deep">
+            simplified.
+          </span>
+        </motion.h1>
+
+        <motion.p
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 0.4, ease: EASE }}
+          className="mx-auto mt-7 max-w-[500px] text-lg leading-relaxed text-mute"
+        >
+          Ping reads your Gmail like a messaging app — every thread becomes a
+          chat, so the clutter disappears and the mail that matters is finally
+          easy to read.
+        </motion.p>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 0.55, ease: EASE }}
+          className="mx-auto mt-10 flex w-full max-w-md flex-col items-center justify-center gap-3 sm:flex-row"
+        >
+          <a
+            href="/signup"
+            className="w-full rounded-full bg-accent px-7 py-4 font-medium text-ink shadow-soft transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lift sm:w-auto"
+          >
+            Sign up
+          </a>
+          <a
+            href="#experience"
+            className="w-full rounded-full border border-stone-200 bg-white px-7 py-4 font-medium text-ink transition-all duration-300 hover:border-stone-300 hover:bg-stone-50 sm:w-auto"
+          >
+            See how it feels
+          </a>
+        </motion.div>
+
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.8, delay: 0.8 }}
+          className="mt-8 text-sm text-mute/80"
+        >
+          Free during beta · your Gmail stays exactly yours
+        </motion.p>
+      </div>
+    </section>
+  );
+}
+
+const MOMENTS = [
+  {
+    time: "8:00 am",
+    text: "Reviewed overnight mail. Two threads need replies.",
+    accentHover: "group-hover:text-accent-deep",
+    tintHover: "group-hover:bg-accent/25",
+  },
+  {
+    time: "9:30 am",
+    text: "Client thread cleared. Reply sent as a chat.",
+    accentHover: "group-hover:text-lavender-deep",
+    tintHover: "group-hover:bg-lavender/40",
+  },
+  {
+    time: "12:15 pm",
+    text: "Quarterly numbers, folded into one conversation.",
+    accentHover: "group-hover:text-sage-deep",
+    tintHover: "group-hover:bg-sage/40",
+  },
+  {
+    time: "3:45 pm",
+    text: "Vendor follow-up done. No mail left open.",
+    accentHover: "group-hover:text-accent-deep",
+    tintHover: "group-hover:bg-accent/25",
+  },
+  {
+    time: "6:00 pm",
+    text: "Newsletters archived. Kept only what mattered.",
+    accentHover: "group-hover:text-lavender-deep",
+    tintHover: "group-hover:bg-lavender/40",
+  },
+  {
+    time: "9:00 pm",
+    text: "No pending threads. Inbox closed for the day.",
+    accentHover: "group-hover:text-sage-deep",
+    tintHover: "group-hover:bg-sage/40",
+  },
+];
+
+function DayFlow() {
+  return (
+    <section id="day" className="scroll-mt-28 px-6 pt-6 pb-20 sm:pb-28">
+      <Reveal className="mx-auto max-w-6xl">
+        <div className="mb-11">
+          {/* <Eyebrow>a day, as chats</Eyebrow> */}
+          <h2 className="mt-4 max-w-xl text-4xl tracking-[-0.025em] sm:text-5xl">
+            A day when your inbox{" "}
+            <span className="font-script text-[0.72em] leading-none text-accent-deep">
+              reads like chat.
+            </span>
+          </h2>
+        </div>
+      </Reveal>
+
+      <Reveal className="mx-auto max-w-6xl">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          {MOMENTS.map((moment, i) => (
+            <motion.article
+              key={moment.time}
+              initial={{ opacity: 0, y: 24 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-40px" }}
+              transition={{ duration: 0.7, delay: i * 0.06, ease: EASE }}
+              className={`group flex h-full flex-col justify-between overflow-hidden rounded-3xl bg-white p-4 shadow-soft ring-1 ring-ink/5 transition-colors duration-500 sm:p-5 ${moment.tintHover}`}
             >
-              <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-                <motion.div
-                  className="flex items-center gap-2"
-                  whileHover={{ scale: 1.05 }}
-                  transition={{ type: "spring", stiffness: 400 }}
-                >
-                  <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center">
-                    <svg
-                      className="w-5 h-5 text-white"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-                      />
-                    </svg>
-                  </div>
-                  <span className="text-xl font-bold">Ping</span>
-                </motion.div>
-                <div className="flex items-center gap-4">
-                  <motion.button
-                    onClick={toggleDarkMode}
-                    className={`p-2 rounded-xl transition-all duration-300 ${darkMode ? "hover:bg-[#30363D] text-yellow-400" : "hover:bg-[#E5E7EB] text-[#6B7280]"}`}
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.95 }}
-                  >
-                    {darkMode ? (
-                      <svg
-                        className="w-5 h-5"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"
-                        />
-                      </svg>
-                    ) : (
-                      <svg
-                        className="w-5 h-5"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"
-                        />
-                      </svg>
-                    )}
-                  </motion.button>
-                  <motion.a
-                    href="/signup"
-                    className="hidden sm:block px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-xl transition-all duration-300 hover:shadow-lg hover:shadow-emerald-500/25"
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                  >
-                    Sign Up
-                  </motion.a>
-                </div>
-              </div>
-            </motion.nav>
-          )}
-        </AnimatePresence>
-
-        {/* Hero Section */}
-        <section className="pt-24 pb-20 px-6">
-          <div className="max-w-6xl mx-auto">
-            <div className="text-center max-w-3xl mx-auto">
-              <FadeIn delay={0.1}>
-                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-sm font-medium mb-6">
-                  <motion.span
-                    className="w-2 h-2 rounded-full bg-emerald-500"
-                    animate={{ scale: [1, 1.2, 1] }}
-                    transition={{ duration: 1.5, repeat: Infinity }}
-                  ></motion.span>
-                  Now in Beta — Join the Waitlist
-                </div>
-              </FadeIn>
-
-              <FadeIn delay={0.2}>
-                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold leading-tight mb-6">
-                  Your Inbox,{" "}
-                  <span className="bg-gradient-to-r from-emerald-500 to-teal-400 bg-clip-text text-transparent">
-                    Reimagined as a Chat.
-                  </span>
-                </h1>
-              </FadeIn>
-
-              <FadeIn delay={0.3}>
-                <p
-                  className={`text-lg sm:text-xl mb-8 ${darkMode ? "text-[#9CA3AF]" : "text-[#6B7280]"}`}
-                >
-                  Ping transforms Email inbox into a fast, intuitive,
-                  WhatsApp-style messaging experience. Turn cluttered email
-                  threads into clean, continuous chat bubbles.
-                </p>
-              </FadeIn>
-
-              <FadeIn delay={0.4}>
-                <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                  <motion.a
-                    href="#waitlist"
-                    className="group px-8 py-4 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-xl transition-all duration-300 hover:shadow-xl hover:shadow-emerald-500/25 flex items-center gap-2 text-lg"
-                    whileHover={{ scale: 1.02, y: -2 }}
-                    whileTap={{ scale: 0.98 }}
-                  >
-                    Join the Waitlist
-                    <motion.svg
-                      className="w-5 h-5 group-hover:translate-x-1 transition-transform"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                      animate={{ x: [0, 4, 0] }}
-                      transition={{
-                        duration: 1.5,
-                        repeat: Infinity,
-                        repeatDelay: 2,
-                      }}
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M13 7l5 5m0 0l-5 5m5-5H6"
-                      />
-                    </motion.svg>
-                  </motion.a>
-                  <motion.a
-                    href="#how-it-works"
-                    className={`px-8 py-4 font-semibold rounded-xl transition-all duration-300 flex items-center gap-2 text-lg ${darkMode ? "hover:bg-[#30363D] text-[#F9FAFB]" : "hover:bg-[#E5E7EB] text-[#111827]"}`}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                  >
-                    See How It Works
-                    <svg
-                      className="w-5 h-5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M19 9l-7 7-7-7"
-                      />
-                    </svg>
-                  </motion.a>
-                </div>
-              </FadeIn>
-            </div>
-
-            {/* Hero Image Placeholder */}
-            <ScaleIn delay={0.5} className="mt-16">
-              <div className="relative">
-                <motion.div
-                  className={`rounded-2xl overflow-hidden shadow-2xl ${darkMode ? "shadow-emerald-500/10" : "shadow-emerald-900/20"}`}
-                  initial={{ opacity: 0, y: 50 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.8, delay: 0.5 }}
-                >
-                  <div
-                    className={`relative ${darkMode ? "bg-[#161B22]" : "bg-white"} border ${darkMode ? "border-[#30363D]" : "border-[#E5E7EB]"} rounded-2xl p-6`}
-                  >
-                    {/* Mock UI - Transform Animation */}
-                    <div className="flex gap-6">
-                      {/* Left Side - Gmail (Before) */}
-                      <div className="flex-1 rounded-xl overflow-hidden">
-                        <div
-                          className={`text-xs font-medium px-3 py-2 ${darkMode ? "bg-[#0D1117] text-[#9CA3AF]" : "bg-gray-100 text-gray-500"}`}
-                        >
-                          Traditional Gmail
-                        </div>
-                        <div
-                          className={`p-4 space-y-3 ${darkMode ? "bg-[#0D1117]" : "bg-gray-50"}`}
-                        >
-                          <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-full bg-red-500 flex items-center justify-center text-white text-xs font-bold">
-                              N
-                            </div>
-                            <div className="flex-1">
-                              <div className="h-2 w-3/4 rounded bg-gray-300 mb-1"></div>
-                              <div className="h-2 w-1/2 rounded bg-gray-200"></div>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-bold">
-                              S
-                            </div>
-                            <div className="flex-1">
-                              <div className="h-2 w-full rounded bg-gray-300 mb-1"></div>
-                              <div className="h-2 w-2/3 rounded bg-gray-200"></div>
-                            </div>
-                          </div>
-                          <div className="rounded-lg bg-white border border-gray-200 p-3">
-                            <div className="flex items-center gap-2 mb-2">
-                              <div className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center text-white text-xs">
-                                A
-                              </div>
-                              <div className="text-xs font-medium text-gray-900">
-                                Amazon
-                              </div>
-                            </div>
-                            <div className="h-2 w-full rounded bg-gray-100 mb-1"></div>
-                            <div className="h-2 w-5/6 rounded bg-gray-100 mb-1"></div>
-                            <div className="h-2 w-4/6 rounded bg-gray-100"></div>
-                          </div>
-                          <div className="rounded-lg bg-white border border-gray-200 p-3">
-                            <div className="flex items-center gap-2 mb-2">
-                              <div className="w-6 h-6 rounded-full bg-purple-500 flex items-center justify-center text-white text-xs">
-                                G
-                              </div>
-                              <div className="text-xs font-medium text-gray-900">
-                                GitHub
-                              </div>
-                            </div>
-                            <div className="h-2 w-full rounded bg-gray-100 mb-1"></div>
-                            <div className="h-2 w-3/4 rounded bg-gray-100"></div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Center - Arrow */}
-                      <div className="flex items-center justify-center">
-                        <motion.div
-                          className="w-12 h-12 rounded-full bg-emerald-500 flex items-center justify-center"
-                          //                          animate={{
-                          //                           scale: [1, 1.1, 1],
-                          //                          boxShadow: [
-                          //                           "0 0 0 0 rgba(16, 185, 129, 0.4)",
-                          //                          "0 0 0 10px rgba(16, 185, 129, 0)",
-                          //                         "0 0 0 0 rgba(16, 185, 129, 0)",
-                          //                      ],
-                          //                   }}
-                          //                  transition={{ duration: 2, repeat: Infinity }}
-                        >
-                          <svg
-                            className="w-6 h-6 text-white"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M13 7l5 5m0 0l-5 5m5-5H6"
-                            />
-                          </svg>
-                        </motion.div>
-                      </div>
-
-                      {/* Right Side - Ping (After) */}
-                      <div className="flex-1 rounded-xl overflow-hidden">
-                        <div className="text-xs font-medium px-3 py-2 bg-emerald-500 text-white">
-                          Ping Chat View
-                        </div>
-                        <div
-                          className={`p-4 space-y-2 ${darkMode ? "bg-[#0D1117]" : "bg-gray-50"}`}
-                        >
-                          {/* Chat Bubbles - Single Email Thread (Amazon Order) */}
-                          <motion.div
-                            className="flex items-start gap-2"
-                            initial={{ opacity: 0, x: 20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: 0.6 }}
-                          >
-                            <div className="w-6 h-6 rounded-full bg-orange-500 flex items-center justify-center text-white text-xs font-bold shrink-0">
-                              A
-                            </div>
-                            <div className="max-w-[85%] px-4 py-2.5 rounded-2xl rounded-br-md bg-white border border-gray-200 text-gray-800 text-sm">
-                              <span className="text-xs text-gray-400 font-medium">
-                                Amazon &lt;ship-confirm@amazon.com&gt;
-                              </span>
-                              <br />
-                              <span className="font-medium text-gray-900">
-                                Your order has shipped!
-                              </span>
-                              <br />
-                              Order #123-4567890-9012345 is on its way.
-                            </div>
-                          </motion.div>
-                          <motion.div
-                            className="flex justify-end"
-                            initial={{ opacity: 0, x: -20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: 0.8 }}
-                          >
-                            <div className="max-w-[85%] px-4 py-2.5 rounded-2xl rounded-bl-md bg-emerald-500 text-white text-sm">
-                              Great! When will it arrive?
-                            </div>
-                          </motion.div>
-                          <motion.div
-                            className="flex items-start gap-2"
-                            initial={{ opacity: 0, x: 20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: 1 }}
-                          >
-                            <div className="w-6 h-6 rounded-full bg-orange-500 flex items-center justify-center text-white text-xs font-bold shrink-0">
-                              A
-                            </div>
-                            <div className="max-w-[85%] px-4 py-2.5 rounded-2xl rounded-br-md bg-white border border-gray-200 text-gray-800 text-sm">
-                              <span className="text-xs text-gray-400 font-medium">
-                                Amazon &lt;ship-confirm@amazon.com&gt;
-                              </span>
-                              <br />
-                              Expected delivery:{" "}
-                              <span className="font-medium text-gray-900">
-                                March 15-17, 2026
-                              </span>
-                            </div>
-                          </motion.div>
-                          <motion.div
-                            className="flex justify-end"
-                            initial={{ opacity: 0, x: -20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: 1.2 }}
-                          >
-                            <div className="max-w-[85%] px-4 py-2.5 rounded-2xl rounded-bl-md bg-emerald-500 text-white text-sm">
-                              Perfect, thanks!
-                            </div>
-                          </motion.div>
-                          <motion.div
-                            className="flex items-start gap-2"
-                            initial={{ opacity: 0, x: 20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: 1.4 }}
-                          >
-                            <div className="w-6 h-6 rounded-full bg-orange-500 flex items-center justify-center text-white text-xs font-bold shrink-0">
-                              A
-                            </div>
-                            <div className="max-w-[85%] px-4 py-2.5 rounded-2xl rounded-br-md bg-white border border-gray-200 text-gray-800 text-sm">
-                              <span className="text-xs text-gray-400 font-medium">
-                                Amazon &lt;delivery@amazon.com&gt;
-                              </span>
-                              <br />
-                              <span className="font-medium text-gray-900">
-                                Out for delivery
-                              </span>
-                              <br />
-                              Your package is out for delivery today!
-                            </div>
-                          </motion.div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </motion.div>
-              </div>
-            </ScaleIn>
-          </div>
-        </section>
-
-        {/* Features Section */}
-        <section id="features" className="py-24 px-6">
-          <div className="max-w-6xl mx-auto">
-            <FadeIn>
-              <div className="text-center mb-16">
-                <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-4">
-                  Why Ping?
-                </h2>
-                <p
-                  className={`text-lg max-w-2xl mx-auto ${darkMode ? "text-[#9CA3AF]" : "text-[#6B7280]"}`}
-                >
-                  Experience email the way it should be — fast, clean, and
-                  conversational.
-                </p>
-              </div>
-            </FadeIn>
-
-            <StaggerContainer className="grid md:grid-cols-3 gap-8">
-              {/* Feature 1 */}
-              <StaggerItem>
-                <motion.div
-                  className={`group p-8 rounded-2xl transition-all duration-300 hover:-translate-y-2 hover:shadow-xl ${darkMode ? "bg-[#0D1117] border border-[#30363D] hover:border-emerald-500/50" : "bg-[#FAFBFC] border border-[#E5E7EB] hover:border-emerald-200 hover:shadow-lg"}`}
-                  whileHover={{ y: -8 }}
-                >
-                  <motion.div
-                    className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center mb-6"
-                    whileHover={{ scale: 1.1, rotate: 5 }}
-                    transition={{ type: "spring", stiffness: 300 }}
-                  >
-                    <svg
-                      className="w-7 h-7 text-white"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-                      />
-                    </svg>
-                  </motion.div>
-                  <h3 className="text-xl font-bold mb-3">
-                    Conversational View
-                  </h3>
-                  <p
-                    className={`${darkMode ? "text-[#9CA3AF]" : "text-[#6B7280]"}`}
-                  >
-                    Emails are grouped into beautiful chat bubbles, stripping
-                    away messy signatures and headers. Finally, a clean inbox.
-                  </p>
-                </motion.div>
-              </StaggerItem>
-
-              {/* Feature 2 */}
-              <StaggerItem>
-                <motion.div
-                  className={`group p-8 rounded-2xl transition-all duration-300 hover:-translate-y-2 hover:shadow-xl ${darkMode ? "bg-[#0D1117] border border-[#30363D] hover:border-emerald-500/50" : "bg-[#FAFBFC] border border-[#E5E7EB] hover:border-emerald-200 hover:shadow-lg"}`}
-                  whileHover={{ y: -8 }}
-                >
-                  <motion.div
-                    className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-400 to-indigo-600 flex items-center justify-center mb-6"
-                    whileHover={{ scale: 1.1, rotate: 5 }}
-                    transition={{ type: "spring", stiffness: 300 }}
-                  >
-                    <svg
-                      className="w-7 h-7 text-white"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"
-                      />
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M7 12h10m-5-4v8"
-                      />
-                    </svg>
-                  </motion.div>
-                  <h3 className="text-xl font-bold mb-3">Familiar Shortcuts</h3>
-                  <p
-                    className={`${darkMode ? "text-[#9CA3AF]" : "text-[#6B7280]"}`}
-                  >
-                    Swipe-to-archive, instant replies, and read receipts.
-                    Everything you love about messaging apps, now for email.
-                  </p>
-                </motion.div>
-              </StaggerItem>
-
-              {/* Feature 3 */}
-              <StaggerItem>
-                <motion.div
-                  className={`group p-8 rounded-2xl transition-all duration-300 hover:-translate-y-2 hover:shadow-xl ${darkMode ? "bg-[#0D1117] border border-[#30363D] hover:border-emerald-500/50" : "bg-[#FAFBFC] border border-[#E5E7EB] hover:border-emerald-200 hover:shadow-lg"}`}
-                  whileHover={{ y: -8 }}
-                >
-                  <motion.div
-                    className="w-14 h-14 rounded-2xl bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center mb-6"
-                    whileHover={{ scale: 1.1, rotate: 5 }}
-                    transition={{ type: "spring", stiffness: 300 }}
-                  >
-                    <svg
-                      className="w-7 h-7 text-white"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-                      />
-                    </svg>
-                  </motion.div>
-                  <h3 className="text-xl font-bold mb-3">
-                    Zero Learning Curve
-                  </h3>
-                  <p
-                    className={`${darkMode ? "text-[#9CA3AF]" : "text-[#6B7280]"}`}
-                  >
-                    Ping syncs perfectly with your existing Gmail account. No
-                    new email address needed — just connect and chat.
-                  </p>
-                </motion.div>
-              </StaggerItem>
-            </StaggerContainer>
-          </div>
-        </section>
-
-        {/* How It Works */}
-        <section id="how-it-works" className="py-24 px-6">
-          <div className="max-w-6xl mx-auto">
-            <FadeIn>
-              <div className="text-center mb-16">
-                <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-4">
-                  How It Works
-                </h2>
-                <p
-                  className={`text-lg max-w-2xl mx-auto ${darkMode ? "text-[#9CA3AF]" : "text-[#6B7280]"}`}
-                >
-                  Get started in under 60 seconds. No complicated setup, no
-                  jargon.
-                </p>
-              </div>
-            </FadeIn>
-
-            <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
-              {/* Row 1 */}
-              {/* Box 1 - Gmail Sync (4 cols) */}
-              <FadeIn delay={0.1} className="col-span-1 md:col-span-4">
-                <motion.div
-                  className={`h-full p-6 rounded-3xl ${darkMode ? "bg-gradient-to-br from-emerald-500/30 to-emerald-600/15 border border-emerald-500/30" : "bg-gradient-to-br from-emerald-50 to-emerald-100/50 border border-emerald-200"}`}
-                  whileHover={{ y: -4, scale: 1.01 }}
-                >
-                  <div className="flex items-start gap-4">
-                    <motion.div
-                      className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center shrink-0"
-                      whileHover={{ rotate: 360 }}
-                      transition={{ duration: 0.5 }}
-                    >
-                      <svg
-                        className="w-7 h-7 text-white"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
-                        />
-                      </svg>
-                    </motion.div>
-                    <div className="flex-3">
-                      <h3 className="text-xl font-bold mb-2">Gmail Sync</h3>
-                      <p
-                        className={`text-sm ${darkMode ? "text-[#9CA3AF]" : "text-[#4B5563]"} leading-relaxed mb-3`}
-                      >
-                        Your emails sync in real-time. Starred, archived, sent,
-                        and drafts — everything stays perfectly in sync across
-                        all your devices.
-                      </p>
-                      <div className="flex flex-wrap gap-3">
-                        <div className="flex items-center gap-2">
-                          <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-                          <span
-                            className={`text-sm ${darkMode ? "text-[#9CA3AF]" : "text-[#6B7280]"}`}
-                          >
-                            Real-time sync
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-                          <span
-                            className={`text-sm ${darkMode ? "text-[#9CA3AF]" : "text-[#6B7280]"}`}
-                          >
-                            All labels
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-                          <span
-                            className={`text-sm ${darkMode ? "text-[#9CA3AF]" : "text-[#6B7280]"}`}
-                          >
-                            Multi-device
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </motion.div>
-              </FadeIn>
-
-              {/* Box 2 - Thread View (2 cols) */}
-              <FadeIn delay={0.2} className="col-span-1 md:col-span-2">
-                <motion.div
-                  className={`h-full p-6 rounded-3xl ${darkMode ? "bg-gradient-to-br from-indigo-500/30 to-indigo-600/15 border border-indigo-500/30" : "bg-gradient-to-br from-indigo-50 to-indigo-100/50 border border-indigo-200"}`}
-                  whileHover={{ y: -4, scale: 1.01 }}
-                >
-                  <div className="flex items-start gap-4">
-                    <motion.div
-                      className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-400 to-indigo-600 flex items-center justify-center shrink-0"
-                      whileHover={{ rotate: 360 }}
-                      transition={{ duration: 0.5 }}
-                    >
-                      <svg
-                        className="w-7 h-7 text-white"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M4 6h16M4 10h16M4 14h16M4 18h16"
-                        />
-                      </svg>
-                    </motion.div>
-                    <div className="flex-1">
-                      <h3 className="text-xl font-bold mb-2">Thread View</h3>
-                      <p
-                        className={`text-sm ${darkMode ? "text-[#9CA3AF]" : "text-[#4B5563]"} leading-relaxed`}
-                      >
-                        Emails grouped into conversation threads. Read full
-                        context without jumping between messages.
-                      </p>
-                    </div>
-                  </div>
-                </motion.div>
-              </FadeIn>
-
-              {/* Row 2 */}
-              {/* Box 3 - Quick Reply (3 cols) */}
-              <FadeIn delay={0.3} className="col-span-1 md:col-span-3">
-                <motion.div
-                  className={`h-full p-6 rounded-3xl ${darkMode ? "bg-gradient-to-br from-purple-500/30 to-purple-600/15 border border-purple-500/30" : "bg-gradient-to-br from-purple-50 to-purple-100/50 border border-purple-200"}`}
-                  whileHover={{ y: -4, scale: 1.01 }}
-                >
-                  <div className="flex items-start gap-4">
-                    <motion.div
-                      className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center shrink-0"
-                      whileHover={{ rotate: 360 }}
-                      transition={{ duration: 0.5 }}
-                    >
-                      <svg
-                        className="w-7 h-7 text-white"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M13 10V3L4 14h7v7l9-11h-7z"
-                        />
-                      </svg>
-                    </motion.div>
-                    <div className="flex-1">
-                      <h3 className="text-xl font-bold mb-2">Quick Reply</h3>
-                      <p
-                        className={`text-sm ${darkMode ? "text-[#9CA3AF]" : "text-[#4B5563]"} leading-relaxed`}
-                      >
-                        Lightning-fast responses with chat-like simplicity. Type
-                        and send in seconds.
-                      </p>
-                    </div>
-                  </div>
-                </motion.div>
-              </FadeIn>
-
-              {/* Box 4 - Smart Search (3 cols, pairs with Quick Reply) */}
-              <FadeIn delay={0.4} className="col-span-1 md:col-span-3">
-                <motion.div
-                  className={`h-full p-6 rounded-3xl ${darkMode ? "bg-gradient-to-br from-teal-500/30 to-teal-600/15 border border-teal-500/30" : "bg-gradient-to-br from-teal-50 to-teal-100/50 border border-teal-200"}`}
-                  whileHover={{ y: -4, scale: 1.01 }}
-                >
-                  <div className="flex items-start gap-4">
-                    <motion.div
-                      className="w-14 h-14 rounded-2xl bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center shrink-0"
-                      whileHover={{ rotate: 360 }}
-                      transition={{ duration: 0.5 }}
-                    >
-                      <svg
-                        className="w-7 h-7 text-white"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                        />
-                      </svg>
-                    </motion.div>
-                    <div className="flex-1">
-                      <h3 className="text-xl font-bold mb-2">Smart Search</h3>
-                      <p
-                        className={`text-sm ${darkMode ? "text-[#9CA3AF]" : "text-[#4B5563]"} leading-relaxed mb-3`}
-                      >
-                        Find any email instantly. Filter by sender, date,
-                        subject, or content with natural language queries.
-                      </p>
-                      <div className="flex flex-wrap gap-3">
-                        <div className="flex items-center gap-2">
-                          <div className="w-2 h-2 rounded-full bg-teal-500"></div>
-                          <span
-                            className={`text-sm ${darkMode ? "text-[#9CA3AF]" : "text-[#6B7280]"}`}
-                          >
-                            Natural language
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="w-2 h-2 rounded-full bg-teal-500"></div>
-                          <span
-                            className={`text-sm ${darkMode ? "text-[#9CA3AF]" : "text-[#6B7280]"}`}
-                          >
-                            Date filters
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="w-2 h-2 rounded-full bg-teal-500"></div>
-                          <span
-                            className={`text-sm ${darkMode ? "text-[#9CA3AF]" : "text-[#6B7280]"}`}
-                          >
-                            Sender search
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </motion.div>
-              </FadeIn>
-            </div>
-          </div>
-        </section>
-
-        {/* Final CTA */}
-        <section id="waitlist" className="py-24 px-6">
-          <div className="max-w-4xl mx-auto text-center">
-            <ScaleIn>
-              <div
-                className={`p-12 rounded-3xl relative overflow-hidden ${darkMode ? "bg-gradient-to-br from-[#161B22] to-[#0D1117] border border-[#30363D]" : "bg-gradient-to-br from-white to-[#FAFBFC] border border-[#E5E7EB]"}`}
+              <span className="text-xs text-stone-400 sm:text-sm">{moment.time}</span>
+              <p
+                className={`mt-3 text-sm leading-snug text-ink transition-colors duration-500 sm:mt-4 sm:text-base ${moment.accentHover}`}
               >
-                {/* Background decoration */}
-                <motion.div
-                  className="absolute top-0 left-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2"
-                  animate={{
-                    scale: [1, 1.2, 1],
-                    opacity: [0.3, 0.5, 0.3],
-                  }}
-                  transition={{ duration: 4, repeat: Infinity }}
-                />
-                <motion.div
-                  className="absolute bottom-0 right-0 w-64 h-64 bg-teal-500/10 rounded-full blur-3xl translate-x-1/2 translate-y-1/2"
-                  animate={{
-                    scale: [1, 1.2, 1],
-                    opacity: [0.3, 0.5, 0.3],
-                  }}
-                  transition={{ duration: 4, repeat: Infinity, delay: 2 }}
-                />
+                {moment.text}
+              </p>
+            </motion.article>
+          ))}
+        </div>
+      </Reveal>
+    </section>
+  );
+}
 
-                <div className="relative z-10">
-                  <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-4">
-                    Ready to Transform Your Inbox?
-                  </h2>
-                  <p
-                    className={`text-lg mb-8 max-w-xl mx-auto ${darkMode ? "text-[#9CA3AF]" : "text-[#6B7280]"}`}
-                  >
-                    Join thousands of early adopters experiencing the future of
-                    email. Sign up now and get early access!
-                  </p>
-                  <motion.form
-                    className="flex flex-col sm:flex-row items-center justify-center gap-4 max-w-md mx-auto"
-                    initial={{ opacity: 0, y: 20 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.3 }}
-                  >
-                    <motion.input
-                      type="email"
-                      placeholder="Enter your email"
-                      className={`w-full px-5 py-4 rounded-xl border-2 outline-none transition-all focus:border-emerald-500 ${darkMode ? "bg-[#0D1117] border-[#30363D] text-white placeholder-[#6B7280]" : "bg-white border-[#E5E7EB] text-gray-900 placeholder-gray-400"}`}
-                      whileFocus={{ scale: 1.02 }}
-                    />
-                    <motion.button
-                      type="submit"
-                      className="w-full sm:w-auto px-8 py-4 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-xl transition-all duration-300 hover:shadow-xl hover:shadow-emerald-500/25 whitespace-nowrap"
-                      whileHover={{ scale: 1.02, y: -2 }}
-                      whileTap={{ scale: 0.98 }}
-                    >
-                      Get Early Access
-                    </motion.button>
-                  </motion.form>
-                  <p
-                    className={`mt-4 text-sm ${darkMode ? "text-[#6B7280]" : "text-gray-400"}`}
-                  >
-                    No spam, ever. Unsubscribe anytime.
-                  </p>
-                </div>
-              </div>
-            </ScaleIn>
-          </div>
-        </section>
-
-        {/* Footer */}
-        <AnimatePresence mode="wait">
-          {footerVisible && (
-            <motion.footer
-              initial={{ y: 100 }}
-              animate={{ y: 0 }}
-              exit={{ y: 100 }}
-              transition={{ duration: 0.3, ease: "easeOut" }}
-              className={`fixed bottom-0 left-0 right-0 z-40 py-4 px-6 border-t backdrop-blur-xl ${darkMode ? "bg-[#0D1117]/95 border-[#30363D]" : "bg-[#FAFBFC]/95 border-[#E5E7EB]"}`}
-            >
-              <div className="max-w-6xl mx-auto">
-                <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-                  <motion.div
-                    className="flex items-center gap-2"
-                    whileHover={{ scale: 1.05 }}
-                  >
-                    <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center">
-                      <svg
-                        className="w-4 h-4 text-white"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-                        />
-                      </svg>
-                    </div>
-                    <span className="text-sm font-bold">Ping</span>
-                  </motion.div>
-
-                  <div className="flex items-center gap-4">
-                    <motion.a
-                      href="#"
-                      className={`transition-colors ${darkMode ? "hover:text-emerald-400 text-[#9CA3AF]" : "hover:text-emerald-600 text-[#6B7280]"}`}
-                      aria-label="Twitter/X"
-                      whileHover={{ scale: 1.2 }}
-                    >
-                      <svg
-                        className="w-5 h-5"
-                        fill="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-                      </svg>
-                    </motion.a>
-                    <motion.a
-                      href="#"
-                      className={`transition-colors ${darkMode ? "hover:text-emerald-400 text-[#9CA3AF]" : "hover:text-emerald-600 text-[#6B7280]"}`}
-                      aria-label="GitHub"
-                      whileHover={{ scale: 1.2 }}
-                    >
-                      <svg
-                        className="w-5 h-5"
-                        fill="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                    </motion.a>
-                  </div>
-
-                  <div className="flex flex-wrap items-center justify-center gap-4 text-xs">
-                    <motion.a
-                      href="#"
-                      className={`transition-colors ${darkMode ? "hover:text-emerald-400 text-[#9CA3AF]" : "hover:text-emerald-600 text-[#6B7280]"}`}
-                      whileHover={{ scale: 1.05 }}
-                    >
-                      Privacy Policy
-                    </motion.a>
-                    <motion.a
-                      href="#"
-                      className={`transition-colors ${darkMode ? "hover:text-emerald-400 text-[#9CA3AF]" : "hover:text-emerald-600 text-[#6B7280]"}`}
-                      whileHover={{ scale: 1.05 }}
-                    >
-                      Contact
-                    </motion.a>
-                  </div>
-                </div>
-              </div>
-            </motion.footer>
-          )}
-        </AnimatePresence>
+function Phone({
+  className,
+  screenClassName,
+  children,
+}: {
+  className?: string;
+  screenClassName?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className={className}>
+      <div className="relative rounded-[2.4rem] border-[10px] border-white bg-white shadow-lift ring-1 ring-ink/5">
+        <div className="absolute left-1/2 top-3 z-10 h-4 w-16 -translate-x-1/2 rounded-full bg-ink/5" />
+        <div
+          className={`flex flex-col overflow-hidden rounded-[2rem] ${screenClassName ?? ""}`}
+        >
+          {children}
+        </div>
       </div>
     </div>
+  );
+}
+
+const OLD_MAIL = [
+  { from: "Amazon", init: "AZ", ring: "bg-stone-800 text-white", subj: "Your order #204-9921 is on the way", time: "9:03", unread: true },
+  { from: "Payroll", init: "P", ring: "bg-emerald-300 text-ink", subj: "July payslip is ready", time: "8:47", unread: true },
+  { from: "Sahil Patel", init: "SP", ring: "bg-sky-300 text-ink", subj: "shared 'Q3 Metrics.pdf' with you", time: "8:12", unread: true },
+  { from: "Studio 99", init: "S9", ring: "bg-stone-200 text-ink", subj: "FINAL SALE — up to 70% off", time: "7:42", unread: false, promo: true },
+  { from: "Adam Chen", init: "AC", ring: "bg-violet-300 text-ink", subj: "RE: Q3 numbers (3 replies)", time: "yest", unread: false },
+  { from: "Nordstrom", init: "NR", ring: "bg-stone-200 text-ink", subj: "Your wishlist is back in stock", time: "yest", unread: false, promo: true },
+  { from: "Team Ops", init: "TO", ring: "bg-rose-300 text-ink", subj: "Can we do a 15-min call?", time: "mon", unread: true },
+];
+
+function OldInbox() {
+  return (
+    <div className="flex h-full flex-col bg-white pt-9 pb-3">
+      <div className="flex w-full items-center justify-between px-3 py-1.5">
+        <div className="h-8 w-8 rounded-full bg-ink/80" />
+        <div className="text-center">
+          <p className="text-[12px] font-semibold text-ink">Inbox</p>
+          <p className="text-[9px] text-mute">1,241 unread</p>
+        </div>
+        <div className="flex gap-1.5">
+          <span className="h-6 w-6 rounded-full bg-stone-200" />
+          <span className="h-6 w-6 rounded-full bg-stone-200" />
+        </div>
+      </div>
+
+      <div className="px-3 pb-2">
+        <div className="flex w-fit items-center rounded-full bg-rose-100/80 px-2.5 py-1 text-[9px] font-medium text-rose-500">
+          98 new · mostly offers
+        </div>
+      </div>
+
+      <div className="min-h-0 flex-1 divide-y divide-stone-100 px-1.5">
+        {OLD_MAIL.map((mail) => (
+          <div key={mail.from} className="flex items-center gap-2 py-2">
+            <div
+              className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[9px] font-semibold ${mail.ring}`}
+            >
+              {mail.init}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p
+                className={`truncate text-[10px] ${
+                  mail.unread ? "font-semibold text-ink" : "text-stone-500"
+                }`}
+              >
+                {mail.subj}
+              </p>
+              <p className="truncate text-[9px] text-mute/80">{mail.from}</p>
+            </div>
+            {mail.promo && (
+              <span className="shrink-0 rounded bg-rose-100 px-1 py-0.5 text-[7px] font-semibold text-rose-500">
+                PROMO
+              </span>
+            )}
+            <span
+              className={`shrink-0 text-[9px] ${
+                mail.unread ? "text-ink" : "text-stone-400"
+              }`}
+            >
+              {mail.time}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+const CHAT = [
+  { from: "in", text: "Hey — the Q3 numbers look off on page 3?", time: "12:03" },
+  { from: "out", text: "Just checked — it's totals before netting.", time: "12:04", read: true },
+  { from: "in", text: "Got it. Can we sync after lunch?", time: "12:05" },
+  { from: "out", text: "Free at 2. Sending the fixed sheet over.", time: "12:06", read: true },
+  { from: "in", text: "Perfect, booked. Legend.", time: "12:08" },
+];
+
+function PingThreads() {
+  return (
+    <div className="flex h-full flex-col bg-[#E4EEF7] pt-9 pb-3">
+      <div className="flex items-center gap-2 border-b border-ink/5 bg-[#D9E9F6] px-2.5 py-2">
+        <svg
+          className="h-4 w-4 shrink-0 text-accent-deep"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={2.5}
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+        </svg>
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-violet-300 text-[9px] font-semibold text-ink">
+          AC
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[10px] font-semibold text-ink">Adam Chen</p>
+          <p className="truncate text-[8px] text-mute">RE: Q3 numbers · from your inbox</p>
+        </div>
+        <svg
+          className="h-4 w-4 shrink-0 text-accent-deep"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={2}
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M2 5l3-2 4 5-2 2a14 14 0 006 6l2-2 5 4-2 3a3 3 0 01-3 1C12.8 21.6 2.4 11.2 2 8A3 3 0 012 5z" />
+        </svg>
+      </div>
+
+      <div className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-hidden px-2.5 py-2">
+        <div className="mx-auto rounded-full bg-white/80 px-2 py-0.5 text-[8px] font-medium text-mute shadow-sm">
+          Today
+        </div>
+        {CHAT.map((c) => (
+          <div
+            key={c.text}
+            className={`flex max-w-[85%] flex-col ${
+              c.from === "out" ? "ml-auto items-end" : "items-start"
+            }`}
+          >
+            <div
+              className={`flex items-end gap-1 rounded-2xl px-2.5 py-1.5 shadow-sm ${
+                c.from === "out" ? "rounded-tr-sm bg-accent/85" : "rounded-tl-sm bg-white"
+              }`}
+            >
+              <p className="text-[10px] leading-snug text-ink">{c.text}</p>
+              <span className="flex shrink-0 items-center gap-0.5 pb-px pl-1 text-[7px] text-mute/70">
+                {c.time}
+                {c.from === "out" && (
+                  <svg
+                    className="h-2.5 w-3 text-accent-deep"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={1.8}
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M2 12l4 4L15 6" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M11 12l4 4L22 6" />
+                  </svg>
+                )}
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex items-center gap-1.5 rounded-2xl bg-white px-2.5 py-2 shadow-sm">
+        <span className="flex h-5 w-5 items-center justify-center text-mute/60">
+          <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 11.5a8.5 8.5 0 01-14 6.6L3 20l1.9-4A8.5 8.5 0 1121 11.5z" />
+          </svg>
+        </span>
+        <span className="h-6 flex-1 rounded-full bg-[#F0F4F8]" />
+        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-accent">
+          <svg
+            className="h-3 w-3 text-white"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2.5}
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14M13 6l6 6-6 6" />
+          </svg>
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function AppPreview() {
+  const ref = useRef<HTMLDivElement>(null);
+  const inView = useInView(ref, { once: true, margin: "-100px" });
+
+  return (
+    <section
+      id="experience"
+      className="relative overflow-hidden scroll-mt-28 px-6 pt-16 pb-24 sm:pb-32"
+    >
+      <div aria-hidden className="pointer-events-none absolute inset-0">
+        <motion.div
+          className="absolute left-[12%] top-10 h-72 w-72 rounded-full bg-sage/70 blur-3xl"
+          animate={{ y: [0, 10, 0] }}
+          transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
+        />
+        <motion.div
+          className="absolute bottom-6 right-[10%] h-80 w-80 rounded-full bg-lavender/70 blur-3xl"
+          animate={{ y: [0, -10, 0] }}
+          transition={{ duration: 7, repeat: Infinity, ease: "easeInOut", delay: 2 }}
+        />
+      </div>
+
+      <div className="relative mx-auto max-w-3xl text-center">
+        <Reveal>
+          {/* <Eyebrow className="justify-center">the app</Eyebrow> */}
+          <h2 className="mt-4 text-4xl tracking-[-0.025em] sm:text-5xl">
+            From pile to{" "}
+            <span className="font-script text-[0.72em] leading-none text-accent-deep">
+              conversation.
+            </span>
+          </h2>
+          <p className="mx-auto mt-5 max-w-md text-lg leading-relaxed text-mute">
+            Every email you already have, folded into threads that read like
+            chats — the signal floats up, the noise stays out of sight.
+          </p>
+        </Reveal>
+      </div>
+
+      <div
+        ref={ref}
+        aria-hidden
+        className="relative mx-auto mt-16 flex max-w-3xl flex-col items-center gap-12 sm:mt-20 sm:flex-row sm:items-center sm:justify-center sm:gap-3"
+      >
+        <motion.div
+          initial={{ opacity: 0, y: 44, scale: 0.97 }}
+          animate={inView ? { opacity: 1, y: 0, scale: 1 } : {}}
+          transition={{ duration: 0.9, delay: 0.05, ease: EASE }}
+          className="w-full max-w-[16rem] sm:w-[45%] sm:max-w-72"
+        >
+          <Phone screenClassName="aspect-[300/620]">
+            <OldInbox />
+          </Phone>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={inView ? { opacity: 1, scale: 1 } : {}}
+          transition={{ duration: 0.6, delay: 0.15, ease: EASE }}
+          className="flex items-center justify-center"
+        >
+          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white shadow-soft ring-1 ring-ink/5">
+            <svg
+              className="h-5 w-5 rotate-90 text-accent-deep sm:rotate-0"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 12h16M13 5l7 7-7 7" />
+            </svg>
+          </span>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 44, scale: 0.97 }}
+          animate={inView ? { opacity: 1, y: 0, scale: 1 } : {}}
+          transition={{ duration: 0.9, delay: 0.2, ease: EASE }}
+          className="w-full max-w-[16rem] sm:w-[45%] sm:max-w-72"
+        >
+          <Phone screenClassName="aspect-[300/620] bg-[#EDF6FC]">
+            <PingThreads />
+          </Phone>
+        </motion.div>
+      </div>
+    </section>
+  );
+}
+
+const STEPS = [
+  {
+    n: "01",
+    title: "Connect your Gmail",
+    line: "Ping sits quietly on top of the Gmail you already have. Nothing moves, nothing is lost, everything stays in sync.",
+  },
+  {
+    n: "02",
+    title: "Threads become chats",
+    line: "Every conversation refolds into a chat interface — replies in bubbles, in order, exactly like a messaging app.",
+  },
+  {
+    n: "03",
+    title: "The pile disappears",
+    line: "Newsletters and noise settle out of sight. Only the mail that matters stays in view, easy to read and easy to reply to.",
+  },
+];
+
+function HowItWorks() {
+  return (
+    <section id="how" className="scroll-mt-28 px-6 pt-6 pb-20 sm:pb-28">
+      <Reveal className="mx-auto max-w-6xl">
+        <div className="mb-12 max-w-xl">
+          {/* <Eyebrow>how it works</Eyebrow> */}
+          <h2 className="mt-4 text-4xl tracking-[-0.025em] sm:text-5xl">
+            Email that finally reads like{" "}
+            <span className="font-script text-[0.72em] leading-none text-accent-deep">
+              messages.
+            </span>
+          </h2>
+        </div>
+      </Reveal>
+
+      <div className="mx-auto grid max-w-6xl gap-5 md:grid-cols-3">
+        {STEPS.map((step, i) => (
+          <Reveal key={step.n} delay={i * 0.08} className="h-full">
+            <div className="flex h-full flex-col rounded-[2rem] bg-white p-8 shadow-soft ring-1 ring-ink/5 transition-transform duration-500 hover:-translate-y-1">
+              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-accent/15 text-sm font-medium text-accent-deep">
+                {step.n}
+              </span>
+              <h3 className="mt-5 text-xl tracking-tight text-ink">{step.title}</h3>
+              <p className="mt-2.5 leading-relaxed text-mute">{step.line}</p>
+            </div>
+          </Reveal>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+const FAQS = [
+  {
+    q: "Does it work with my Gmail?",
+    a: "Yes. Ping sits on top of the Gmail you already have. Connect once, and every thread becomes a conversation — starred, sent, drafts, and archived all stay in sync.",
+  },
+  {
+    q: "Is my mail private?",
+    a: "Your messages stay in your account. Ping reads the surface of a thread to group it into a chat; it doesn't train on your mail, and nothing is sold or shown to anyone else.",
+  },
+  {
+    q: "What does it cost?",
+    a: "It's free during beta. When Ping grows up, it'll carry a very gentle price for people who want the quiet. Gmail itself stays free.",
+  },
+  {
+    q: "Do I have to leave Gmail?",
+    a: "Not at all. Think of Ping as a softer way to sit with the same inbox. Gmail stays on your phone, desk, and browser — Ping just reads it more kindly.",
+  },
+  {
+    q: "I have a lot of mail. Will it be okay?",
+    a: "That's exactly who this is for. Ping is calm under pressure — old threads fold into tidy conversations, and the overwhelm settles on its own.",
+  },
+];
+
+function Faq() {
+  const [open, setOpen] = useState<number | null>(0);
+
+  return (
+    <section
+      id="faq"
+      className="relative z-10 scroll-mt-28 px-6 pt-6 pb-20 sm:pb-28"
+    >
+      <Reveal className="mx-auto max-w-2xl">
+        <div className="mb-10 text-center">
+          {/* <Eyebrow className="justify-center">the small print</Eyebrow> */}
+          <h2 className="mt-4 text-4xl tracking-[-0.025em] sm:text-5xl">
+            Asked,{" "}
+            <span className="font-script text-[0.72em] leading-none text-accent-deep">
+              softly.
+            </span>
+          </h2>
+        </div>
+      </Reveal>
+
+      <div className="mx-auto max-w-2xl space-y-3">
+        {FAQS.map((item, i) => {
+          const isOpen = open === i;
+          return (
+            <Reveal key={item.q} delay={i * 0.05}>
+              <div className="overflow-hidden rounded-2xl border border-stone-100 bg-white shadow-soft">
+                <button
+                  onClick={() => setOpen(isOpen ? null : i)}
+                  aria-expanded={isOpen}
+                  aria-controls={`faq-panel-${i}`}
+                  className="flex w-full items-center justify-between gap-4 p-6 text-left"
+                >
+                  <span className="font-medium text-ink">{item.q}</span>
+                  <motion.span
+                    aria-hidden
+                    animate={{ rotate: isOpen ? 45 : 0 }}
+                    transition={{ duration: 0.4, ease: EASE }}
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-stone-50"
+                  >
+                    <svg
+                      className="h-4 w-4 text-mute"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" d="M12 5v14M5 12h14" />
+                    </svg>
+                  </motion.span>
+                </button>
+                <motion.div
+                  id={`faq-panel-${i}`}
+                  role="region"
+                  initial={false}
+                  animate={{
+                    height: isOpen ? "auto" : 0,
+                    opacity: isOpen ? 1 : 0,
+                  }}
+                  transition={{ duration: 0.5, ease: EASE }}
+                  className="overflow-hidden"
+                >
+                  <p className="px-6 pb-6 leading-relaxed text-mute">{item.a}</p>
+                </motion.div>
+              </div>
+            </Reveal>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function Waitlist() {
+  return (
+    <section
+      id="signup"
+      className="relative scroll-mt-28 px-6 pt-16 pb-24 sm:pb-32"
+    >
+      <div aria-hidden className="pointer-events-none absolute inset-0">
+        <motion.div
+          className="absolute -left-20 -top-24 h-80 w-80 rounded-full bg-cream opacity-80 blur-[110px]"
+          animate={{ y: [0, -12, 0] }}
+          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+        />
+        <motion.div
+          className="absolute -right-16 bottom-0 h-80 w-80 rounded-full bg-lavender opacity-80 blur-[110px]"
+          animate={{ y: [0, 14, 0] }}
+          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut", delay: 2.5 }}
+        />
+        <motion.div
+          className="absolute left-1/2 top-1/2 h-64 w-64 -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent/40 blur-[100px]"
+          animate={{ y: [0, 10, 0] }}
+          transition={{ duration: 9, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+        />
+      </div>
+
+      <div className="relative mx-auto max-w-xl text-center">
+        <Reveal>
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-ink shadow-lift">
+            <span className="h-2.5 w-2.5 rounded-full bg-accent" />
+          </div>
+          <h2 className="mt-7 text-4xl tracking-[-0.025em] sm:text-5xl">
+            From messy to{" "}
+            <span className="font-script text-[0.72em] leading-none text-accent-deep">
+              messaging.
+            </span>
+          </h2>
+          <p className="mx-auto mt-5 max-w-md text-lg leading-relaxed text-mute">
+            Connect your Gmail once. Every email becomes a chat you can
+            actually read — and the clutter stays out of sight.
+          </p>
+        </Reveal>
+
+        <Reveal delay={0.15} className="mx-auto mt-10 flex justify-center">
+          <motion.a
+            href="/signup"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.97 }}
+            transition={{ duration: 0.2 }}
+            className="inline-flex h-14 items-center justify-center rounded-full bg-ink px-9 font-medium text-canvas shadow-soft"
+          >
+            Sign up with Gmail
+          </motion.a>
+        </Reveal>
+      </div>
+    </section>
+  );
+}
+
+function Footer() {
+  return (
+    <footer className="px-6 pb-10">
+      <div className="mx-auto flex max-w-6xl flex-col items-center gap-5 border-t border-ink/5 pt-8 text-sm text-mute sm:flex-row sm:justify-between">
+        <div className="flex items-center gap-2.5">
+          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-accent">
+            <span className="h-1.5 w-1.5 rounded-full bg-white" />
+          </span>
+          <span className="font-medium tracking-tight text-ink">Ping</span>
+          <span className="text-mute/70">— made to slow you down</span>
+        </div>
+        <div className="flex items-center gap-6">
+          <a href="/signup" className="transition-colors duration-300 hover:text-ink">
+            Log in
+          </a>
+          <a href="#" className="transition-colors duration-300 hover:text-ink">
+            Privacy
+          </a>
+          <a href="#" className="transition-colors duration-300 hover:text-ink">
+            Contact
+          </a>
+        </div>
+        <p className="text-mute/60">© 2026 Ping</p>
+      </div>
+    </footer>
+  );
+}
+
+export default function Home() {
+  return (
+    <MotionConfig reducedMotion="user">
+      <div className="relative min-h-screen overflow-x-clip bg-canvas text-ink">
+        <Nav />
+        <main>
+          <Hero />
+          <DayFlow />
+          <AppPreview />
+          <HowItWorks />
+          <Faq />
+          <Waitlist />
+        </main>
+        <Footer />
+        <div aria-hidden className="grain-overlay" />
+      </div>
+    </MotionConfig>
   );
 }

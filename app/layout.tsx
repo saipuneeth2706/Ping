@@ -1,5 +1,5 @@
 import "./globals.css";
-import { Outfit, DM_Sans } from "next/font/google";
+import { Outfit, Reenie_Beanie } from "next/font/google";
 
 import { Providers } from "./providers";
 
@@ -9,9 +9,10 @@ const outfit = Outfit({
   display: "swap",
 });
 
-const dmSans = DM_Sans({
+const reenie = Reenie_Beanie({
+  weight: "400",
   subsets: ["latin"],
-  variable: "--font-dm-sans",
+  variable: "--font-reenie",
   display: "swap",
 });
 
@@ -21,8 +22,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${outfit.variable} ${dmSans.variable}`}>
-      <body className="font-sans">
+    <html lang="en" className={`${outfit.variable} ${reenie.variable}`}>
+      <body className="bg-canvas font-sans text-ink antialiased">
         <Providers>{children}</Providers>
       </body>
     </html>
